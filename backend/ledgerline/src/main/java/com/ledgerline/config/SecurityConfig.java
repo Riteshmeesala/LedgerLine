@@ -30,12 +30,15 @@ public class SecurityConfig {
 
     private final String allowedOrigin;
     private final ObjectMapper objectMapper;
+    private final com.ledgerline.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(
             @Value("${ledgerline.cors.allowed-origin:http://localhost:5173}") String allowedOrigin,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            com.ledgerline.security.JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.allowedOrigin = allowedOrigin;
         this.objectMapper = objectMapper;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
     @Bean
@@ -60,6 +63,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                 .anyRequest().authenticated()
         );
+
+        http.addFilterBefore(jwtAuthenticationFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
 
         http.exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint((request, response, authException) -> {

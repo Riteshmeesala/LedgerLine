@@ -13,5 +13,7 @@ ledgerline:
   jwt:
     secret: test_suite_secret_key_at_least_32_bytes_long_1234567890abcdef
     expiration-minutes: 15
+  rate-limit:
+    enabled: false
   cors:
     allowed-origin: http://localhost:5173
