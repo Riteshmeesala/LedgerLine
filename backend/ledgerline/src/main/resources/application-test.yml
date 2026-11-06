@@ -1,11 +1,13 @@
 spring:
   datasource:
-    url: ${TEST_DB_URL:jdbc:h2:mem:ledgerline_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
-    username: ${TEST_DB_USER:sa}
-    password: ${TEST_DB_PASSWORD:}
-    driver-class-name: org.h2.Driver
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5433/ledgerline_test}
+    username: ${TEST_DB_USER:root}
+    password: ${TEST_DB_PASSWORD:root}
+    driver-class-name: org.postgresql.Driver
   flyway:
-    enabled: false
+    enabled: true
+    clean-disabled: false
+    locations: classpath:db/migration
 
 ledgerline:
   jwt:
@@ -13,4 +15,3 @@ ledgerline:
     expiration-minutes: 15
   cors:
     allowed-origin: http://localhost:5173
-
