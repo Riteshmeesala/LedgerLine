@@ -1,0 +1,36 @@
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+spring:
+  application:
+    name: ledgerline
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    locations: classpath:db/migration
+
+ledgerline:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-minutes: 15
+  cors:
+    allowed-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+  limits:
+    max-minor-units: 100000000
+    lockout-attempts: 5
+    lockout-duration-minutes: 15
+

@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:h2:mem:ledgerline_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
+    username: ${TEST_DB_USER:sa}
+    password: ${TEST_DB_PASSWORD:}
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false
+
+ledgerline:
+  jwt:
+    secret: test_suite_secret_key_at_least_32_bytes_long_1234567890abcdef
+    expiration-minutes: 15
+  cors:
+    allowed-origin: http://localhost:5173
+

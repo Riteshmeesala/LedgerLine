@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ledgerline_db}
+    username: ${DB_USER:ledgerline_app}
+    password: ${DB_PASSWORD:}
+  flyway:
+    enabled: true
+
+ledgerline:
+  jwt:
+    secret: ${JWT_SECRET:dev_mode_only_secret_key_at_least_32_bytes_long_abcdef123456}
+  cors:
+    allowed-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+
