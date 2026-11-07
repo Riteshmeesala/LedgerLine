@@ -42,6 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String jwt = authHeader.substring(7).trim();
         try {
             UUID userId = jwtService.extractUserId(jwt);
+            UserRole tokenRole = jwtService.extractRole(jwt);
 
             // Rule: Check on every request that the user still exists and is enabled
             UserPrincipal userPrincipal = jdbcTemplate.queryForObject(
@@ -56,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     userId
             );
 
-            if (userPrincipal != null && userPrincipal.isEnabled()) {
+            if (userPrincipal != null && userPrincipal.isEnabled() && userPrincipal.getRole() == tokenRole) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userPrincipal,
                         null,

@@ -81,14 +81,19 @@ public class MoneyEngineService {
             String kind) {
 
         // 1. Validation
-        if (idempotencyKey == null || !IDEMPOTENCY_KEY_PATTERN.matcher(idempotencyKey).matches()) {
-            throw new IllegalArgumentException("Idempotency-Key must be 8 to 64 alphanumeric, dash, or underscore characters.");
+        if (idempotencyKey == null || !idempotencyKey.equals(idempotencyKey.trim()) || !IDEMPOTENCY_KEY_PATTERN.matcher(idempotencyKey).matches()) {
+            throw new IllegalArgumentException("Idempotency-Key must be 8 to 64 alphanumeric, dash, or underscore characters without surrounding whitespace.");
         }
         if (amountMinor == null || amountMinor <= 0 || amountMinor > maxMinorUnits) {
             throw new IllegalArgumentException("amountMinor must be between 1 and " + maxMinorUnits + " minor units.");
         }
         if (fromAccountId.equals(toAccountId)) {
             throw new IllegalArgumentException("Cannot transfer funds to the same account.");
+        }
+        if ("TRANSFER".equals(kind)) {
+            if (CASH_IN_OUT_ACCOUNT_ID.equals(fromAccountId) || CASH_IN_OUT_ACCOUNT_ID.equals(toAccountId)) {
+                throw new IllegalArgumentException("System account cannot participate in peer-to-peer transfers.");
+            }
         }
 
         // 2. Request hash: SHA-256(method, path, fromAccountId, toAccountId, amountMinor)

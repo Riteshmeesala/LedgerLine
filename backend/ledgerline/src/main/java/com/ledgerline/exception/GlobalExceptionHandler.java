@@ -16,6 +16,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.time.Instant;
@@ -87,6 +88,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         logSecurityFailure("ILLEGAL_ARGUMENT", "VALIDATION", "ARGUMENT", Map.of("reason", ex.getMessage()));
         return buildProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String detail = "Failed to convert parameter '" + ex.getName() + "' to required type";
+        logSecurityFailure("TYPE_MISMATCH", "REQUEST", "PARAMETER", Map.of("reason", detail));
+        return buildProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", detail);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+        logSecurityFailure("INTERNAL_ERROR", "SERVER", "SYSTEM", Map.of("reason", "Internal error"));
+        return buildProblemResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected internal error occurred.");
     }
 
     @Override
