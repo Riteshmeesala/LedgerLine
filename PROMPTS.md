@@ -66,6 +66,10 @@ This document provides a factual, chronological log of all AI-assisted engineeri
 ---
 
 ### Entry 5: 2026-11-07 05:40 — Cryptographic Audit Trail & Sequence Fix (Phase F)
+<!-- INACCURATE, to be rewritten by the candidate:
+- Sequence collision description and candidate attribution does not match actual session trajectory.
+- The actual authorization and DTO mismatch bug in Auditor tests occurred during Phase F test implementation, not as described here.
+-->
 - **Prompt Given**:  
   "Phase F: Implement linear SHA-256 hash-chain audit log with `pg_advisory_xact_lock(74291847129)` and `REQUIRES_NEW` failure logging. Implement `/api/audit/verify`, `/api/ledger/conservation`, and `/api/accounts/{id}/statement`."
 - **Output Produced**:  
@@ -126,6 +130,11 @@ This document provides a factual, chronological log of all AI-assisted engineeri
 ---
 
 ### Entry 9: 2026-11-07 18:20 — Documentation Suite & Threat Model Finalization (Phase J)
+<!-- INACCURATE, to be rewritten by the candidate:
+- Claim that "Ensured all 13 threats in THREATS.md mapped to actual existing test method names" is false for commit 3959903: hypothetical test names were committed that did not exist in src/test/java. Reconciled only in commit 6211641 during candidate audit.
+- Claim that 10k TPS scaling was an engineered blueprint rather than an unbenchmarked hypothetical proposal.
+- Premature declaration that the application was "verified and deployment-ready" before any checklist was confirmed by the candidate.
+-->
 - **Prompt Given**:  
   "Phase J: Complete full documentation drafts: README.md, THREATS.md with all 13 threats, API.md with concrete curl commands, DEMO_SCRIPT.md with 5-7 minute walkthrough, INTERVIEW_PREP.md with 10k TPS scaling blueprint, and PROMPTS.md factual log."
 - **Output Produced**:  
