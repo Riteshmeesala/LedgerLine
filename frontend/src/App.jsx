@@ -1,23 +1,67 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginView from './views/LoginView';
+import RegisterView from './views/RegisterView';
+import HolderDashboard from './views/HolderDashboard';
+import StatementView from './views/StatementView';
+import AuditorDashboard from './views/AuditorDashboard';
+import AdminPanel from './views/AdminPanel';
 
 export default function App() {
-  const [health, setHealth] = useState(null);
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => res.json())
-      .then((data) => setHealth(data))
-      .catch((err) => console.error('Health check failed', err));
-  }, []);
-
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>LedgerLine</h1>
-      <p>Move money so the books always balance and the same request never pays twice.</p>
-      <div style={{ marginTop: '1rem', padding: '1rem', background: '#f0f4f8', borderRadius: '4px' }}>
-        <strong>Backend Health:</strong> {health ? JSON.stringify(health) : 'Connecting...'}
-      </div>
-    </div>
+    <Router>
+      <AuthProvider>
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+          <Navbar />
+          <main style={{ flex: 1 }}>
+            <Routes>
+              <Route path="/login" element={<LoginView />} />
+              <Route path="/register" element={<RegisterView />} />
+              
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <HolderDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/statements"
+                element={
+                  <ProtectedRoute>
+                    <StatementView />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/auditor"
+                element={
+                  <ProtectedRoute allowedRoles={['AUDITOR', 'ADMIN']}>
+                    <AuditorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute allowedRoles={['ADMIN']}>
+                    <AdminPanel />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </main>
+        </div>
+      </AuthProvider>
+    </Router>
   );
 }
-
