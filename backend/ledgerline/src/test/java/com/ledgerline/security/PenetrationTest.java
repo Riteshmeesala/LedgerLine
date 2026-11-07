@@ -162,7 +162,7 @@ public class PenetrationTest {
     }
 
     @Test
-    @DisplayName("G-3: Idempotency-Key with leading or trailing whitespace is strictly validated or trimmed")
+    @DisplayName("G-3: Idempotency-Key with leading or trailing whitespace is strictly validated or trimmed (HTTP 400)")
     void idempotencyKeyWithWhitespacePaddingIsRejectedOrNormalized() throws Exception {
         // Malformed key with whitespace padding
         mockMvc.perform(post("/api/accounts/{id}/deposits", holderAccountId)
@@ -170,7 +170,21 @@ public class PenetrationTest {
                         .header("Idempotency-Key", "  invalid-padded-key-1234  ")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amountMinor\": 1000}"))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType("application/problem+json"))
+                .andExpect(jsonPath("$.title").value("Bad Request"));
+    }
+
+    @Test
+    @DisplayName("G-10: Missing Idempotency-Key header is rejected with HTTP 400 problem+json")
+    void missingIdempotencyKeyIsRejectedWith400ProblemJson() throws Exception {
+        mockMvc.perform(post("/api/accounts/{id}/deposits", holderAccountId)
+                        .header("Authorization", "Bearer " + holderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountMinor\": 1000}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType("application/problem+json"))
+                .andExpect(jsonPath("$.title").value("Bad Request"));
     }
 
     @Test

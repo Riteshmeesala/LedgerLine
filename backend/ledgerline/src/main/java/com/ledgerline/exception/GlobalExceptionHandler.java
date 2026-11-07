@@ -60,6 +60,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildProblemResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidIdempotencyKeyException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidIdempotencyKey(InvalidIdempotencyKeyException ex) {
+        logSecurityFailure("INVALID_IDEMPOTENCY_KEY", "HEADER", "IDEMPOTENCY_KEY", Map.of("reason", ex.getMessage()));
+        return buildProblemResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+    }
+
     @ExceptionHandler(RateLimitExceededException.class)
     public ResponseEntity<Map<String, Object>> handleRateLimit(RateLimitExceededException ex) {
         logSecurityFailure("RATE_LIMIT_EXCEEDED", "RATE_LIMIT", "RATE_LIMIT", Map.of("reason", ex.getMessage()));

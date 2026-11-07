@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ledgerline.dto.TransferResponse;
 import com.ledgerline.exception.IdempotencyMismatchException;
 import com.ledgerline.exception.InsufficientFundsException;
+import com.ledgerline.exception.InvalidIdempotencyKeyException;
 import com.ledgerline.exception.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -82,7 +83,7 @@ public class MoneyEngineService {
 
         // 1. Validation
         if (idempotencyKey == null || !idempotencyKey.equals(idempotencyKey.trim()) || !IDEMPOTENCY_KEY_PATTERN.matcher(idempotencyKey).matches()) {
-            throw new IllegalArgumentException("Idempotency-Key must be 8 to 64 alphanumeric, dash, or underscore characters without surrounding whitespace.");
+            throw new InvalidIdempotencyKeyException("Idempotency-Key must be 8 to 64 alphanumeric, dash, or underscore characters without surrounding whitespace.");
         }
         if (amountMinor == null || amountMinor <= 0 || amountMinor > maxMinorUnits) {
             throw new IllegalArgumentException("amountMinor must be between 1 and " + maxMinorUnits + " minor units.");
