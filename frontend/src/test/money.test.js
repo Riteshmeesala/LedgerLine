@@ -39,3 +39,4 @@ describe('Money Utilities (Strict Integer / Minor Units Math)', () => {
     expect(formatINR(sum)).toBe('₹0.30');
   });
 });
+

@@ -15,3 +15,4 @@ describe('Problem+JSON Error Mapping (RFC 7807)', () => {
     expect(error.isReplayed).toBe(true);
   });
 });
+
