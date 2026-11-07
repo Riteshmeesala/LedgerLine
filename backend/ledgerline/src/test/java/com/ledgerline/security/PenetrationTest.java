@@ -275,5 +275,63 @@ public class PenetrationTest {
                 .andExpect(jsonPath("$.stackTrace").doesNotExist())
                 .andExpect(jsonPath("$.trace").doesNotExist());
     }
+
+    @Test
+    @DisplayName("G-11: THREATS.md matrix references only real, existing Java test methods in src/test")
+    void threatModelMatrixRefersOnlyToExistingJavaTestMethods() throws Exception {
+        java.nio.file.Path cwd = java.nio.file.Paths.get("").toAbsolutePath();
+        java.nio.file.Path threatsPath = null;
+        java.nio.file.Path testRoot = null;
+        java.nio.file.Path cursor = cwd;
+        while (cursor != null) {
+            java.nio.file.Path cand = cursor.resolve("THREATS.md");
+            if (java.nio.file.Files.exists(cand)) {
+                threatsPath = cand;
+                testRoot = cursor.resolve("backend/ledgerline/src/test/java");
+                break;
+            }
+            cursor = cursor.getParent();
+        }
+        org.junit.jupiter.api.Assertions.assertNotNull(threatsPath, "THREATS.md must exist in repository root");
+        org.junit.jupiter.api.Assertions.assertTrue(java.nio.file.Files.isDirectory(testRoot), "testRoot must exist: " + testRoot);
+
+        java.util.List<String> lines = java.nio.file.Files.readAllLines(threatsPath);
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("`([A-Za-z0-9]+)\\.([A-Za-z0-9_]+)`");
+        java.util.List<String> missingMethods = new java.util.ArrayList<>();
+        int verifiedCount = 0;
+
+        for (String line : lines) {
+            if (line.startsWith("| **T-")) {
+                String[] parts = line.split("\\|");
+                if (parts.length > 5) {
+                    String testCell = parts[5].trim();
+                    java.util.regex.Matcher matcher = pattern.matcher(testCell);
+                    while (matcher.find()) {
+                        String className = matcher.group(1);
+                        String methodName = matcher.group(2);
+                        verifiedCount++;
+
+                        try (java.util.stream.Stream<java.nio.file.Path> stream = java.nio.file.Files.walk(testRoot)) {
+                            java.util.Optional<java.nio.file.Path> classFile = stream
+                                    .filter(p -> p.getFileName().toString().equals(className + ".java"))
+                                    .findFirst();
+                            if (classFile.isEmpty()) {
+                                missingMethods.add("Class missing: " + className + " (method: " + methodName + ")");
+                            } else {
+                                String source = java.nio.file.Files.readString(classFile.get());
+                                if (!source.contains(methodName)) {
+                                    missingMethods.add("Method missing: " + className + "." + methodName);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        org.junit.jupiter.api.Assertions.assertTrue(verifiedCount >= 13, "Expected at least 13 test references in THREATS.md matrix, found: " + verifiedCount);
+        org.junit.jupiter.api.Assertions.assertTrue(missingMethods.isEmpty(),
+                "Found missing test references cited in THREATS.md: " + missingMethods);
+    }
 }
 
