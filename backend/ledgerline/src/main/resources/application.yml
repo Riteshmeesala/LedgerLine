@@ -1,5 +1,8 @@
 server:
   port: ${PORT:8080}
+  tomcat:
+    max-swallow-size: 65536
+    max-http-form-post-size: 65536
   error:
     include-message: never
     include-binding-errors: never
@@ -9,6 +12,9 @@ server:
 spring:
   application:
     name: ledgerline
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}

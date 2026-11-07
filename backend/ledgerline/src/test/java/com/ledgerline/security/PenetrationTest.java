@@ -226,5 +226,40 @@ public class PenetrationTest {
                         .param("size", "1"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("G-8: Unknown JSON fields are rejected with HTTP 400 problem+json and no stack trace")
+    void unknownJsonFieldsAreRejectedWith400ProblemJson() throws Exception {
+        mockMvc.perform(post("/api/accounts/{id}/deposits", holderAccountId)
+                        .header("Authorization", "Bearer " + holderToken)
+                        .header("Idempotency-Key", "pen-unknown-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountMinor\": 1000, \"unknownInjectedProperty\": \"attack\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType("application/problem+json"))
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.stackTrace").doesNotExist())
+                .andExpect(jsonPath("$.trace").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("G-9: Oversized request payload exceeding 64KB is rejected with HTTP 413 or 400 problem+json")
+    void oversizedPayloadExceeding64KbIsRejectedWith413Or400() throws Exception {
+        String largePadding = "A".repeat(70000); // 70 KB > 64 KB limit
+        mockMvc.perform(post("/api/accounts/{id}/deposits", holderAccountId)
+                        .header("Authorization", "Bearer " + holderToken)
+                        .header("Idempotency-Key", "pen-oversize-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountMinor\": 1000, \"padding\": \"" + largePadding + "\"}"))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    org.assertj.core.api.Assertions.assertThat(status)
+                            .withFailMessage("Expected HTTP 413 or 400 but got " + status)
+                            .isIn(400, 413);
+                })
+                .andExpect(content().contentType("application/problem+json"))
+                .andExpect(jsonPath("$.stackTrace").doesNotExist())
+                .andExpect(jsonPath("$.trace").doesNotExist());
+    }
 }
 

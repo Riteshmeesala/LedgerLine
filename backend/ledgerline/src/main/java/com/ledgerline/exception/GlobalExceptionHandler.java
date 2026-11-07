@@ -97,6 +97,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", detail);
     }
 
+    @ExceptionHandler(PayloadTooLargeException.class)
+    public ResponseEntity<Map<String, Object>> handlePayloadTooLarge(PayloadTooLargeException ex) {
+        logSecurityFailure("PAYLOAD_TOO_LARGE", "REQUEST", "SIZE", Map.of("reason", ex.getMessage()));
+        return buildProblemResponse(HttpStatus.PAYLOAD_TOO_LARGE, "Payload Too Large", ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
         logSecurityFailure("INTERNAL_ERROR", "SERVER", "SYSTEM", Map.of("reason", "Internal error"));
@@ -109,7 +115,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpHeaders headers,
             HttpStatusCode status,
             WebRequest request) {
-        String detail = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+        Throwable cause = ex.getCause();
+        if (cause instanceof com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException upe) {
+            String detail = "Unrecognized field: '" + upe.getPropertyName() + "'";
+            logSecurityFailure("UNKNOWN_PROPERTY", "REQUEST", "PAYLOAD", Map.of("reason", detail));
+            Map<String, Object> body = createProblemMap(HttpStatus.BAD_REQUEST, "Bad Request", detail);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(PROBLEM_JSON)
+                    .body(body);
+        }
+        String detail = cause != null ? cause.getMessage() : ex.getMessage();
         logSecurityFailure("MALFORMED_INPUT", "REQUEST", "PAYLOAD", Map.of("reason", detail));
         Map<String, Object> body = createProblemMap(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", detail);
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
