@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
 import { formatINR } from '../utils/money';
-import { Users, UserPlus, Shield, Snowflake, Sun, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { 
+  Users, UserPlus, Shield, Snowflake, Sun, AlertTriangle, 
+  CheckCircle2, Key, Lock, RefreshCw, Cpu
+} from 'lucide-react';
 
 /**
  * Admin Panel View.
@@ -49,7 +52,7 @@ export default function AdminPanel() {
         method: 'POST',
         body: JSON.stringify({ email: email.trim(), password, role })
       });
-      setSuccessMsg(`User ${created.email} provisioned with role ${created.role}.`);
+      setSuccessMsg(`User ${created.email} successfully provisioned with role ${created.role}.`);
       setEmail('');
       setPassword('');
       setRole('HOLDER');
@@ -69,7 +72,7 @@ export default function AdminPanel() {
 
     try {
       await apiClient(endpoint, { method: 'POST' });
-      setSuccessMsg(`Account ${accountId.slice(0, 8)}... status updated.`);
+      setSuccessMsg(`Account ${accountId.slice(0, 8)}... status updated to ${currentStatus === 'ACTIVE' ? 'FROZEN' : 'ACTIVE'}.`);
       fetchAccounts();
     } catch (err) {
       setError(err.detail || err.message || 'Failed to update account status.');
@@ -77,42 +80,57 @@ export default function AdminPanel() {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1.5rem' }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: 'var(--neon-violet)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.3rem' }}>
-          <Shield size={16} /> Administrative Operations
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      {/* Top Header */}
+      <div className="hud-card" style={{ marginBottom: '2.5rem', padding: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+              <span className="live-beacon" />
+              <span className="hud-tag violet">ADMINISTRATIVE OPERATIONS CONSOLE</span>
+              <span className="hud-tag cyan">ROLE: ROLE_ADMIN</span>
+            </div>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              System <span className="glow-text-violet">Administration</span>
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginTop: '0.4rem' }}>
+              Provision enterprise users, assign access roles, and manage high-integrity account freeze controls.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+            <button onClick={fetchAccounts} className="btn btn-secondary">
+              <RefreshCw size={16} /> Refresh State
+            </button>
+          </div>
         </div>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '0.3rem' }}>
-          System Administration
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-          Provision organizational users and manage account status.
-        </p>
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#fca5a5', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <AlertTriangle size={18} /> <span>{error}</span>
+        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '2rem', color: '#fca5a5', display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+          <AlertTriangle size={20} /> <span>{error}</span>
         </div>
       )}
 
       {successMsg && (
-        <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#34d399', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <CheckCircle2 size={18} /> <span>{successMsg}</span>
+        <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '2rem', color: '#34d399', display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+          <CheckCircle2 size={20} /> <span>{successMsg}</span>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '2rem', marginBottom: '2.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
         {/* Create User Form */}
-        <div className="glass-panel" style={{ padding: '1.8rem' }}>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <UserPlus size={18} style={{ color: 'var(--neon-violet)' }} />
-            Provision New User
-          </h2>
+        <div className="hud-card" style={{ padding: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.4rem' }}>
+            <UserPlus size={20} style={{ color: 'var(--neon-violet)' }} />
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+              Provision New User
+            </h2>
+          </div>
 
-          <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>
                 Email Address
               </label>
               <input
@@ -121,12 +139,12 @@ export default function AdminPanel() {
                 className="form-input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="auditor@ledgerline.local"
+                placeholder="analyst@ledgerline.local"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>
                 Initial Password
               </label>
               <input
@@ -137,58 +155,73 @@ export default function AdminPanel() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Minimum 8 characters"
               />
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                Hashed with BCrypt (12 rounds) before persistence.
+              </div>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
-                System Role
+              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>
+                Assigned Role
               </label>
               <select className="form-input" value={role} onChange={(e) => setRole(e.target.value)}>
-                <option value="HOLDER" style={{ background: '#0f172a' }}>HOLDER (Customer Account)</option>
-                <option value="AUDITOR" style={{ background: '#0f172a' }}>AUDITOR (Read-Only Inspection)</option>
-                <option value="ADMIN" style={{ background: '#0f172a' }}>ADMIN (Full Administration)</option>
+                <option value="HOLDER" style={{ background: '#0a101e' }}>HOLDER (Customer Account & Money Movements)</option>
+                <option value="AUDITOR" style={{ background: '#0a101e' }}>AUDITOR (Read-Only Cryptographic Audit Inspection)</option>
+                <option value="ADMIN" style={{ background: '#0a101e' }}>ADMIN (Full Administration & Account Control)</option>
               </select>
             </div>
 
-            <button type="submit" disabled={userLoading} className="btn btn-primary" style={{ marginTop: '0.5rem' }}>
-              <UserPlus size={16} /> {userLoading ? 'Provisioning...' : 'Provision User'}
+            <button type="submit" disabled={userLoading} className="btn btn-primary" style={{ marginTop: '0.5rem', padding: '0.8rem' }}>
+              <UserPlus size={16} /> {userLoading ? 'Provisioning...' : 'Provision User Credentials'}
             </button>
           </form>
         </div>
 
         {/* Account Status Administration */}
-        <div className="glass-panel" style={{ padding: '1.8rem' }}>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Users size={18} style={{ color: 'var(--neon-cyan)' }} />
-            Account Status Management
-          </h2>
+        <div className="glass-panel" style={{ padding: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.4rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <Users size={20} style={{ color: 'var(--neon-cyan)' }} />
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+                Account Status Management
+              </h2>
+            </div>
+            <span className="hud-tag cyan">{accounts.length} Nodes</span>
+          </div>
 
           {loading ? (
-            <div style={{ color: 'var(--text-muted)' }}>Loading accounts...</div>
+            <div style={{ color: 'var(--text-muted)', padding: '2rem', textAlign: 'center' }}>
+              Loading account registry...
+            </div>
           ) : accounts.length === 0 ? (
-            <div style={{ color: 'var(--text-muted)' }}>No accounts registered.</div>
+            <div style={{ color: 'var(--text-muted)', padding: '2rem', textAlign: 'center' }}>
+              No accounts registered in system.
+            </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '420px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', maxHeight: '460px', overflowY: 'auto' }}>
               {accounts.map((acc) => (
                 <div
                   key={acc.id}
+                  className="stat-tile"
                   style={{
-                    background: 'rgba(15, 23, 42, 0.6)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    padding: '0.8rem 1rem',
+                    padding: '1rem 1.2rem',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between'
+                    justifyContent: 'space-between',
+                    gap: '1rem'
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{acc.name}</div>
-                    <div className="tabular-nums" style={{ fontSize: '0.85rem', color: 'var(--neon-cyan)' }}>{formatINR(acc.balance)}</div>
-                    <div className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{acc.id}</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{acc.name}</div>
+                    <div className="tabular-nums glow-text-cyan" style={{ fontSize: '1.05rem', fontWeight: 800 }}>
+                      {formatINR(acc.balance)}
+                    </div>
+                    <div className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      UUID: {acc.id.slice(0, 8)}...{acc.id.slice(-4)}
+                    </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                     <span className={`badge ${acc.status === 'ACTIVE' ? 'badge-emerald' : 'badge-crimson'}`}>
                       {acc.status}
                     </span>
@@ -196,7 +229,7 @@ export default function AdminPanel() {
                       <button
                         onClick={() => handleToggleFreeze(acc.id, acc.status)}
                         className={`btn ${acc.status === 'ACTIVE' ? 'btn-danger' : 'btn-secondary'}`}
-                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem' }}
                       >
                         {acc.status === 'ACTIVE' ? (
                           <><Snowflake size={14} /> Freeze</>
@@ -215,4 +248,3 @@ export default function AdminPanel() {
     </div>
   );
 }
-

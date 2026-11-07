@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
 import { formatINR } from '../utils/money';
-import { Activity, ShieldCheck, ShieldAlert, CheckCircle2, RefreshCw, Link2, AlertTriangle, Layers } from 'lucide-react';
+import { 
+  Activity, ShieldCheck, ShieldAlert, CheckCircle2, RefreshCw, 
+  Link2, AlertTriangle, Layers, Database, Lock, Terminal, Cpu
+} from 'lucide-react';
 
 /**
  * Auditor Dashboard Component.
@@ -68,68 +71,93 @@ export default function AuditorDashboard() {
   }, []);
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1.5rem' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
-        <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: 'var(--neon-cyan)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.3rem' }}>
-            <Activity size={16} /> Auditor Verification Console
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      {/* Top Futuristic SOC Header */}
+      <div className="hud-card" style={{ marginBottom: '2.5rem', padding: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+              <span className="live-beacon" />
+              <span className="hud-tag cyan">SECURITY OPERATIONS CENTER</span>
+              <span className="hud-tag violet">READ-ONLY AUDIT ROLE</span>
+            </div>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              System Integrity & <span className="glow-text-cyan">Conservation</span>
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginTop: '0.4rem' }}>
+              Cryptographic hash-chain audit trail verification and global double-entry zero-sum monitoring.
+            </p>
           </div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '0.3rem' }}>
-            System Integrity & Conservation
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            Cryptographic audit chain verification and global zero-sum conservation monitoring.
-          </p>
+
+          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button onClick={() => { fetchConservation(); fetchAuditLogs(); }} className="btn btn-secondary">
+              <RefreshCw size={16} /> Refresh Feeds
+            </button>
+            <button
+              onClick={verifyAuditChain}
+              disabled={verifying}
+              className="btn btn-primary"
+              style={{ minWidth: '220px' }}
+            >
+              <ShieldCheck size={18} />
+              {verifying ? 'Scanning Chain Hashes...' : 'Verify Cryptographic Chain'}
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.8rem' }}>
-          <button onClick={() => { fetchConservation(); fetchAuditLogs(); }} className="btn btn-secondary">
-            <RefreshCw size={16} /> Refresh
-          </button>
-          <button
-            onClick={verifyAuditChain}
-            disabled={verifying}
-            className="btn btn-primary"
-            style={{ minWidth: '160px' }}
-          >
-            <ShieldCheck size={18} />
-            {verifying ? 'Verifying Chain...' : 'Verify Cryptographic Chain'}
-          </button>
+        {/* Security Primitives Badges */}
+        <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '1.5rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(148, 163, 184, 0.1)' }}>
+          <div className="hud-tag emerald">
+            <Lock size={12} /> SQLSTATE 55000 IMMUTABLE TRIGGERS
+          </div>
+          <div className="hud-tag cyan">
+            <Cpu size={12} /> PG_ADVISORY_XACT_LOCK CONCURRENCY
+          </div>
+          <div className="hud-tag violet">
+            <Database size={12} /> BILATERAL DEFERRABLE CONSTRAINTS
+          </div>
         </div>
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#fca5a5' }}>
-          {error}
+        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '2rem', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <AlertTriangle size={20} />
+          <span>{error}</span>
         </div>
       )}
 
       {/* Verification Result Banner */}
       {verificationResult && (
         <div
-          className="glass-panel"
+          className="hud-card"
           style={{
-            padding: '1.5rem',
-            marginBottom: '2rem',
-            border: verificationResult.valid ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(239, 68, 68, 0.6)',
-            background: verificationResult.valid ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.12)',
+            padding: '1.8rem',
+            marginBottom: '2.5rem',
+            border: verificationResult.valid ? '1px solid rgba(16, 185, 129, 0.6)' : '1px solid rgba(244, 63, 94, 0.7)',
+            background: verificationResult.valid ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 30, 20, 0.5) 100%)' : 'linear-gradient(135deg, rgba(244, 63, 94, 0.15) 0%, rgba(30, 5, 10, 0.5) 100%)',
+            boxShadow: verificationResult.valid ? '0 0 30px rgba(16, 185, 129, 0.2)' : '0 0 30px rgba(244, 63, 94, 0.3)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1.2rem'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
             {verificationResult.valid ? (
-              <CheckCircle2 size={32} style={{ color: 'var(--neon-emerald)' }} />
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16, 185, 129, 0.5)' }}>
+                <CheckCircle2 size={30} style={{ color: 'var(--neon-emerald)' }} />
+              </div>
             ) : (
-              <ShieldAlert size={32} style={{ color: 'var(--neon-crimson)' }} />
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(244, 63, 94, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(244, 63, 94, 0.5)' }}>
+                <ShieldAlert size={30} style={{ color: 'var(--neon-crimson)' }} />
+              </div>
             )}
             <div>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: verificationResult.valid ? '#34d399' : '#f87171' }}>
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: verificationResult.valid ? '#34d399' : '#f87171', letterSpacing: '-0.01em' }}>
                 {verificationResult.valid ? 'Cryptographic Hash-Chain Valid & Untampered' : 'Tampering Detected: Hash Chain Broken'}
               </h2>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
                 {verificationResult.valid
                   ? `All ${verificationResult.checkedRows} sequential blocks verified from genesis (SHA-256 linear chain unbroken).`
                   : `Integrity check failed at sequence #${verificationResult.firstBrokenSeq}. Stored hash does not match computed hash.`}
@@ -137,66 +165,79 @@ export default function AuditorDashboard() {
             </div>
           </div>
 
-          <span className={`badge ${verificationResult.valid ? 'badge-emerald' : 'badge-crimson'}`} style={{ fontSize: '0.9rem', padding: '0.4rem 0.8rem' }}>
-            {verificationResult.valid ? 'CHAIN VERIFIED' : `BROKEN AT #${verificationResult.firstBrokenSeq}`}
+          <span className={`badge ${verificationResult.valid ? 'badge-emerald' : 'badge-crimson'}`} style={{ fontSize: '0.9rem', padding: '0.5rem 1rem' }}>
+            {verificationResult.valid ? 'CHAIN 100% VERIFIED' : `BROKEN AT BLOCK #${verificationResult.firstBrokenSeq}`}
           </span>
         </div>
       )}
 
       {/* Conservation Meter */}
       <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <Layers size={20} style={{ color: 'var(--neon-cyan)' }} />
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Double-Entry Conservation Meter</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.6rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Layers size={22} style={{ color: 'var(--neon-cyan)' }} />
+            <div>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+                Double-Entry Conservation Meter
+              </h2>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Fundamental Invariant: Σ Credits + Σ Debits = 0 (Global Zero-Sum)
+              </span>
+            </div>
           </div>
+
           {conservation && (
-            <span className={`badge ${conservation.healthy ? 'badge-emerald' : 'badge-crimson'}`}>
+            <span className={`badge ${conservation.healthy ? 'badge-emerald' : 'badge-crimson'}`} style={{ fontSize: '0.85rem', padding: '0.4rem 0.9rem' }}>
               {conservation.healthy ? 'ZERO-SUM PRESERVED' : 'INVARIANT VIOLATED'}
             </span>
           )}
         </div>
 
         {conservationLoading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Calculating global conservation...</div>
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            Calculating global conservation invariant...
+          </div>
         ) : conservation ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
             {/* Metric 1: Sum of Entries */}
-            <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '1.2rem' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+            <div className="stat-tile">
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em', fontWeight: 600, marginBottom: '0.4rem' }}>
                 SUM OF ALL LEDGER ENTRIES
               </div>
-              <div className="tabular-nums" style={{ fontSize: '1.8rem', fontWeight: 700, color: conservation.sumOfEntries === 0 ? 'var(--neon-emerald)' : 'var(--neon-crimson)' }}>
+              <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: conservation.sumOfEntries === 0 ? 'var(--neon-emerald)' : 'var(--neon-crimson)' }}>
                 {formatINR(conservation.sumOfEntries)}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-                Must equal 0 minor units across all credits and debits.
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span className="live-beacon" style={{ width: '6px', height: '6px' }} />
+                <span>Must strictly equal 0 minor units.</span>
               </div>
             </div>
 
             {/* Metric 2: Sum of Balances */}
-            <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '1.2rem' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+            <div className="stat-tile">
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em', fontWeight: 600, marginBottom: '0.4rem' }}>
                 SUM OF ALL ACCOUNT BALANCES
               </div>
-              <div className="tabular-nums" style={{ fontSize: '1.8rem', fontWeight: 700, color: conservation.sumOfBalances === 0 ? 'var(--neon-emerald)' : 'var(--neon-crimson)' }}>
+              <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: conservation.sumOfBalances === 0 ? 'var(--neon-emerald)' : 'var(--neon-crimson)' }}>
                 {formatINR(conservation.sumOfBalances)}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-                Customer balances offset against CASH_IN_OUT system node.
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span className="live-beacon" style={{ width: '6px', height: '6px' }} />
+                <span>Customer balances offset vs CASH_IN_OUT node.</span>
               </div>
             </div>
 
             {/* Metric 3: Imbalanced Transfers */}
-            <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '1.2rem' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+            <div className="stat-tile">
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em', fontWeight: 600, marginBottom: '0.4rem' }}>
                 IMBALANCED TRANSFER COUNT
               </div>
-              <div className="tabular-nums" style={{ fontSize: '1.8rem', fontWeight: 700, color: conservation.imbalancedTransferCount === 0 ? 'var(--neon-emerald)' : 'var(--neon-crimson)' }}>
+              <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: conservation.imbalancedTransferCount === 0 ? 'var(--neon-emerald)' : 'var(--neon-crimson)' }}>
                 {conservation.imbalancedTransferCount}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-                Individual transfers whose bilateral entries do not sum to 0.
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span className="live-beacon" style={{ width: '6px', height: '6px' }} />
+                <span>Transfers violating double-entry conservation.</span>
               </div>
             </div>
           </div>
@@ -205,68 +246,93 @@ export default function AuditorDashboard() {
 
       {/* Hash-Chain Visualizer */}
       <div className="glass-panel" style={{ padding: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <Link2 size={20} style={{ color: 'var(--neon-violet)' }} />
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Cryptographic Hash-Chain Visualizer</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.8rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Link2 size={22} style={{ color: 'var(--neon-violet)' }} />
+            <div>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+                Cryptographic Hash-Chain Visualizer
+              </h2>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Linear hash integrity: H(i) = SHA-256(H(i-1) || seq || actor || action || entity || payload || timestamp)
+              </span>
+            </div>
           </div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            SHA-256(prev_hash || seq || actor || action || entity || payload || created_at)
+
+          <span className="hud-tag violet">
+            IMMUTABLE SEQUENTIAL LOG
           </span>
         </div>
 
         {logsLoading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading audit blocks...</div>
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            Retrieving cryptographic audit blocks...
+          </div>
         ) : auditLogs.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No audit blocks recorded yet.</div>
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', background: 'rgba(10, 16, 30, 0.4)', borderRadius: '12px' }}>
+            No audit blocks recorded yet.
+          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {auditLogs.map((block) => {
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            {auditLogs.map((block, index) => {
               const isBroken = verificationResult && !verificationResult.valid && verificationResult.firstBrokenSeq === block.seq;
               const isVerified = verificationResult && verificationResult.valid;
 
               return (
-                <div
-                  key={block.seq}
-                  style={{
-                    background: isBroken ? 'rgba(239, 68, 68, 0.15)' : isVerified ? 'rgba(16, 185, 129, 0.08)' : 'rgba(15, 23, 42, 0.6)',
-                    border: isBroken ? '1px solid var(--neon-crimson)' : isVerified ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-subtle)',
-                    borderRadius: '10px',
-                    padding: '1.2rem',
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                      <span className="badge badge-cyan">BLOCK #{block.seq}</span>
-                      <span className="badge badge-violet">{block.action}</span>
-                      <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                        {block.entityType}: <code className="mono">{block.entityId}</code>
-                      </span>
+                <div key={block.seq}>
+                  <div
+                    className="stat-tile"
+                    style={{
+                      background: isBroken 
+                        ? 'rgba(239, 68, 68, 0.15)' 
+                        : isVerified 
+                        ? 'rgba(16, 185, 129, 0.08)' 
+                        : 'linear-gradient(135deg, rgba(16, 26, 48, 0.7) 0%, rgba(9, 15, 30, 0.85) 100%)',
+                      border: isBroken 
+                        ? '1px solid var(--neon-crimson)' 
+                        : isVerified 
+                        ? '1px solid rgba(16, 185, 129, 0.4)' 
+                        : '1px solid var(--border-subtle)',
+                      padding: '1.4rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '0.6rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap' }}>
+                        <span className="badge badge-cyan" style={{ fontSize: '0.8rem' }}>BLOCK #{block.seq}</span>
+                        <span className="badge badge-violet">{block.action}</span>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {block.entityType}: <code className="mono" style={{ color: 'var(--text-primary)' }}>{block.entityId}</code>
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                        {new Date(block.createdAt).toISOString()}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      {new Date(block.createdAt).toISOString()}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem', fontSize: '0.8rem', marginBottom: '0.8rem' }}>
+                      <div style={{ background: 'rgba(5, 10, 20, 0.5)', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(148, 163, 184, 0.06)' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.2rem' }}>PREVIOUS BLOCK HASH:</div>
+                        <code className="mono" style={{ color: 'var(--text-secondary)', wordBreak: 'break-all', fontSize: '0.76rem' }}>{block.prevHash}</code>
+                      </div>
+                      <div style={{ background: 'rgba(5, 10, 20, 0.5)', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(148, 163, 184, 0.06)' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.2rem' }}>BLOCK HASH (SHA-256):</div>
+                        <code className="mono" style={{ color: isBroken ? '#f87171' : isVerified ? '#34d399' : 'var(--neon-cyan)', wordBreak: 'break-all', fontSize: '0.76rem' }}>
+                          {block.hash}
+                        </code>
+                      </div>
                     </div>
+
+                    {block.payload && Object.keys(block.payload).length > 0 && (
+                      <div style={{ background: 'rgba(0, 0, 0, 0.35)', borderRadius: '8px', padding: '0.6rem 0.9rem', fontSize: '0.78rem', border: '1px solid rgba(148, 163, 184, 0.05)' }}>
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Payload: </span>
+                        <code className="mono" style={{ color: 'var(--text-secondary)' }}>{JSON.stringify(block.payload)}</code>
+                      </div>
+                    )}
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.8rem', fontSize: '0.78rem', marginBottom: '0.6rem' }}>
-                    <div>
-                      <div style={{ color: 'var(--text-muted)' }}>PREVIOUS HASH:</div>
-                      <code className="mono" style={{ color: 'var(--text-secondary)', wordBreak: 'break-all' }}>{block.prevHash}</code>
-                    </div>
-                    <div>
-                      <div style={{ color: 'var(--text-muted)' }}>BLOCK HASH:</div>
-                      <code className="mono" style={{ color: isBroken ? '#f87171' : isVerified ? '#34d399' : 'var(--neon-cyan)', wordBreak: 'break-all' }}>
-                        {block.hash}
-                      </code>
-                    </div>
-                  </div>
-
-                  {block.payload && Object.keys(block.payload).length > 0 && (
-                    <div style={{ background: 'rgba(0, 0, 0, 0.3)', borderRadius: '6px', padding: '0.5rem 0.8rem', fontSize: '0.75rem' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Payload: </span>
-                      <code className="mono" style={{ color: 'var(--text-secondary)' }}>{JSON.stringify(block.payload)}</code>
-                    </div>
+                  {/* Visual link vector to next block */}
+                  {index < auditLogs.length - 1 && (
+                    <div className="chain-connector" />
                   )}
                 </div>
               );
@@ -277,4 +343,3 @@ export default function AuditorDashboard() {
     </div>
   );
 }
-
