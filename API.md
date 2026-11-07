@@ -1,16 +1,16 @@
 # LedgerLine — API Reference & Concrete cURL Manual (API.md)
 
-This document provides production-ready, copy-pasteable `curl` commands for all 15 endpoints exposed by LedgerLine.
+This document provides production-ready, copy-pasteable `curl` commands for all 17 endpoints exposed by LedgerLine.
 
 ---
 
 ## Global Headers & Standards
 
-- **Base URL**: `http://localhost:8080` (or `https://ledgerline-backend.onrender.com`)
+- **Base URL**: `http://localhost:8080` (or `https://<your-backend-host>`)
 - **Authentication**: `Authorization: Bearer <JWT_TOKEN>` (stateless HMAC-SHA256)
 - **Content Type**: `Content-Type: application/json`
 - **Error Standard**: RFC 7807 Problem Details (`application/problem+json`)
-- **Idempotency Key**: `Idempotency-Key: <UUID>` (generated once per user intent, reused on retries)
+- **Idempotency Key**: `Idempotency-Key: <UUID>` (8 to 64 alphanumeric characters, dashes, or underscores without whitespace; required on all write endpoints)
 - **Monetary Representation**: Strictly integer minor units (paise; ₹1.00 = `100`).
 
 ---
@@ -18,15 +18,14 @@ This document provides production-ready, copy-pasteable `curl` commands for all 
 ## 1. Authentication Endpoints
 
 ### 1.1 Register New Account (`POST /api/auth/register`)
-Unconditionally creates an account with role `HOLDER`. Any client-supplied role is ignored.
+Creates a new customer user with role `HOLDER`. Client-supplied role field is strictly rejected with HTTP 422. Unknown JSON fields are rejected with HTTP 400.
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
-    "password": "SecurePassword123!",
-    "fullName": "Alice Johnson"
+    "password": "SecurePassword123!"
   }'
 ```
 
@@ -336,8 +335,8 @@ curl -X GET http://localhost:8080/api/ledger/conservation \
 {
   "sumOfEntries": 0,
   "sumOfBalances": 0,
-  "imbalancedTransfersCount": 0,
-  "conserved": true
+  "imbalancedTransferCount": 0,
+  "healthy": true
 }
 ```
 
@@ -486,4 +485,34 @@ curl -X GET http://localhost:8080/api/health
   "timestamp": "2026-11-07T12:45:00.123Z"
 }
 ```
+
+---
+
+## 8. Standard Error Responses (RFC 7807 Problem Details)
+
+All error responses return `Content-Type: application/problem+json` with sanitized details and no stack traces:
+
+```json
+{
+  "type": "about:blank",
+  "title": "<Error Title>",
+  "status": <HTTP_STATUS_CODE>,
+  "detail": "<Sanitized human-readable explanation>",
+  "timestamp": "2026-11-07T12:45:00.123Z"
+}
+```
+
+### Status Code Reference
+| HTTP Status | Error Title | Trigger Condition |
+| :--- | :--- | :--- |
+| **400 Bad Request** | `Bad Request` | Missing or malformed `Idempotency-Key` header; unknown JSON fields (`fail-on-unknown-properties=true`). |
+| **401 Unauthorized** | `Unauthorized` | Missing, expired, tampered, or invalid JWT token; invalid credentials; disabled account. |
+| **403 Forbidden** | `Forbidden` | Authenticated caller lacks requisite role (e.g. `HOLDER` calling `/api/admin/*` or `AUDITOR` attempting write operations). |
+| **404 Not Found** | `Not Found` | Resource does not exist, or account is not owned by authenticated user (IDOR masking). |
+| **413 Payload Too Large** | `Payload Too Large` | Request body exceeds the 64 KB payload size limit. |
+| **415 Unsupported Media Type** | `Unsupported Media Type` | Request specifies a non-JSON `Content-Type`. |
+| **422 Unprocessable Entity** | `Unprocessable Entity` | Business rule validation failed: amount $\le 0$, exceeding max limit, self-transfer, overdraw (insufficient funds), reused idempotency key with different payload, or client-supplied registration role. |
+| **429 Too Many Requests** | `Too Many Requests` | Rate limit exceeded (e.g. 5 failed login attempts triggers 15-minute lockout). |
+| **500 Internal Server Error** | `Internal Server Error` | Unexpected server failure; sanitized without leaking stack trace or file paths. |
+
 
