@@ -199,19 +199,30 @@ Derived strictly from real test executions during development:
 
 ## 8. Deployment Status
 
-- **Status**: **Prepared, not yet deployed**
-- **Artifacts Prepared**:
-  - Non-root multi-stage production [`Dockerfile`](file:///C:/Users/rites/OneDrive/Desktop/LedgerLine/Dockerfile)
-  - Production Spring profile `prod` reading database credentials and seed passwords from environment variables
-  - Automated [`DatabaseSeeder`](file:///C:/Users/rites/OneDrive/Desktop/LedgerLine/backend/ledgerline/src/main/java/com/ledgerline/config/DatabaseSeeder.java) initializing roles and customer checking accounts
-  - Vercel client SPA configuration [`vercel.json`](file:///C:/Users/rites/OneDrive/Desktop/LedgerLine/frontend/vercel.json) with catch-all route rewrites to `/index.html`
-- **Candidate Deployment Instructions**:
-  - **Backend (Render / Managed PostgreSQL)**:
-    1. Create a Managed PostgreSQL instance on Render.
-    2. Create a Web Service pointing to repository root using Docker runtime.
-    3. Set environment variable names: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION_MINUTES`, `FRONTEND_ORIGIN`, `PORT`, `SEED_ADMIN_PASSWORD`, `SEED_AUDITOR_PASSWORD`, `SEED_HOLDER1_PASSWORD`, `SEED_HOLDER2_PASSWORD`.
-  - **Frontend (Vercel)**:
-    1. Import `frontend` root on Vercel.
-    2. Set environment variable: `VITE_API_BASE_URL` pointing to backend URL.
-    3. Deploy and verify `/api/health`.
+- **Status**: **Fully Deployed & Live (VERIFIED)**
+- **Live Deployments**:
+  - **Frontend (Vercel)**: [`https://ledger-line-orpin.vercel.app`](https://ledger-line-orpin.vercel.app)
+  - **Backend (Render Web Service)**: [`https://ledgerline-t2vv.onrender.com`](https://ledgerline-t2vv.onrender.com)
+  - **Database (Render Managed PostgreSQL 16)**: `dpg-dbnmsbp5efls73bpq3u0-a:5432/ledgerline_vftx`
+- **Verification Commands & Evidence**:
+  - Backend Liveness (`200 OK`):
+    ```bash
+    curl -i https://ledgerline-t2vv.onrender.com/api/health
+    # Returns {"status":"UP","timestamp":"...","service":"ledgerline"}
+    ```
+  - Frontend SPA & Deep-Link (`200 OK`):
+    ```bash
+    curl -I https://ledger-line-orpin.vercel.app/dashboard
+    # Returns HTTP/1.1 200 OK (Content-Type: text/html)
+    ```
+  - CORS Preflight Authorization (`200 OK`):
+    ```bash
+    curl -i -X OPTIONS https://ledgerline-t2vv.onrender.com/api/auth/login \
+      -H "Origin: https://ledger-line-orpin.vercel.app" \
+      -H "Access-Control-Request-Method: POST" \
+      -H "Access-Control-Request-Headers: content-type"
+    # Returns access-control-allow-origin: https://ledger-line-orpin.vercel.app
+    ```
+- **Free Tier Note**: Render spins down inactive backend web services after 15 minutes of inactivity; the initial cold-start probe may take ~50 seconds before resuming sub-50ms responses.
+
 
