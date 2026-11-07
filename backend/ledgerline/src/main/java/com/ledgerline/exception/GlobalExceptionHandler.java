@@ -49,9 +49,37 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildProblemResponse(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", ex.getMessage());
     }
 
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ResponseEntity<Map<String, Object>> handleInsufficientFunds(InsufficientFundsException ex) {
+        return buildProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Insufficient Funds", ex.getMessage());
+    }
+
+    @ExceptionHandler(IdempotencyMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleIdempotencyMismatch(IdempotencyMismatchException ex) {
+        return buildProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Idempotency Key Conflict", ex.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+        return buildProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Illegal State", ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return buildProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        String detail = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+        Map<String, Object> body = createProblemMap(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", detail);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .contentType(PROBLEM_JSON)
+                .body(body);
     }
 
     @Override

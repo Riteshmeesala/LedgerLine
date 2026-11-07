@@ -25,10 +25,15 @@ public class AccountController {
 
     private final JdbcTemplate jdbcTemplate;
     private final AccountAccessPolicy accountAccessPolicy;
+    private final com.ledgerline.service.MoneyEngineService moneyEngineService;
 
-    public AccountController(JdbcTemplate jdbcTemplate, AccountAccessPolicy accountAccessPolicy) {
+    public AccountController(
+            JdbcTemplate jdbcTemplate,
+            AccountAccessPolicy accountAccessPolicy,
+            com.ledgerline.service.MoneyEngineService moneyEngineService) {
         this.jdbcTemplate = jdbcTemplate;
         this.accountAccessPolicy = accountAccessPolicy;
+        this.moneyEngineService = moneyEngineService;
     }
 
     @GetMapping
@@ -106,20 +111,54 @@ public class AccountController {
 
     @PostMapping("/{id}/deposits")
     @PreAuthorize("hasRole('HOLDER') and @accountAccessPolicy.canAccessAccount(authentication, #id)")
-    public ResponseEntity<Map<String, Object>> deposit(
+    public ResponseEntity<com.ledgerline.dto.TransferResponse> deposit(
             @PathVariable UUID id,
-            @RequestBody Map<String, Object> body) {
-        // Full engine implementation handled in Phase D
-        return ResponseEntity.ok(Map.of("accountId", id.toString(), "action", "deposit"));
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody com.ledgerline.dto.DepositWithdrawRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        com.ledgerline.dto.TransferResponse response = moneyEngineService.executeTransfer(
+                principal.getId(),
+                "POST",
+                "/api/accounts/" + id + "/deposits",
+                idempotencyKey,
+                com.ledgerline.service.MoneyEngineService.CASH_IN_OUT_ACCOUNT_ID,
+                id,
+                request.getAmountMinor(),
+                "DEPOSIT"
+        );
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        if (response.isReplayed()) {
+            headers.add("Idempotent-Replayed", "true");
+        }
+        return ResponseEntity.ok().headers(headers).body(response);
     }
 
     @PostMapping("/{id}/withdrawals")
     @PreAuthorize("hasRole('HOLDER') and @accountAccessPolicy.canAccessAccount(authentication, #id)")
-    public ResponseEntity<Map<String, Object>> withdraw(
+    public ResponseEntity<com.ledgerline.dto.TransferResponse> withdraw(
             @PathVariable UUID id,
-            @RequestBody Map<String, Object> body) {
-        // Full engine implementation handled in Phase D
-        return ResponseEntity.ok(Map.of("accountId", id.toString(), "action", "withdraw"));
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody com.ledgerline.dto.DepositWithdrawRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        com.ledgerline.dto.TransferResponse response = moneyEngineService.executeTransfer(
+                principal.getId(),
+                "POST",
+                "/api/accounts/" + id + "/withdrawals",
+                idempotencyKey,
+                id,
+                com.ledgerline.service.MoneyEngineService.CASH_IN_OUT_ACCOUNT_ID,
+                request.getAmountMinor(),
+                "WITHDRAWAL"
+        );
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        if (response.isReplayed()) {
+            headers.add("Idempotent-Replayed", "true");
+        }
+        return ResponseEntity.ok().headers(headers).body(response);
     }
 }
 
