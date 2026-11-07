@@ -66,7 +66,7 @@ flowchart TD
 ## 3. Quickstart: Windows CMD Run Steps
 
 ### Prerequisites
-- Java Development Kit (JDK 21 or higher)
+- Java Development Kit: JDK 21+ (Local development machine uses JDK 25 compiling to Java 21 bytecode via `--release 21`)
 - Node.js (v18 or higher) & npm
 - PostgreSQL 16+ running locally on port `5433` (or port `5432` per your configuration)
 
@@ -103,19 +103,19 @@ npm run dev
 
 ## 4. Environment Variables Configuration
 
-| Variable | Description | Default / Example Value | Required In |
+| Variable | Description | Placeholder / Example Value | Required In |
 |---|---|---|---|
 | `DB_URL` | JDBC database connection URL | `jdbc:postgresql://localhost:5433/ledgerline_db` | All |
 | `DB_USER` | PostgreSQL user | `root` | All |
-| `DB_PASSWORD` | PostgreSQL password | `root` | All |
-| `JWT_SECRET` | 256-bit secret key for HMAC-SHA256 | `min-32-chars-long-secret-key-for-ledgerline` | All |
+| `DB_PASSWORD` | PostgreSQL password | `<your-db-password>` | All |
+| `JWT_SECRET` | 256-bit secret key for HMAC-SHA256 (>= 32 chars) | `<your-jwt-secret-min-32-chars>` | All |
 | `JWT_EXPIRATION_MINUTES` | Token lifetime | `15` | All |
 | `FRONTEND_ORIGIN` | Allowed CORS origin (strict single-origin) | `http://localhost:5173` | All |
 | `PORT` | HTTP port | `8080` | All |
-| `SEED_ADMIN_PASSWORD` | Seed Admin password | `AdminSecurePass123!` | Prod |
-| `SEED_AUDITOR_PASSWORD`| Seed Auditor password | `AuditorSecurePass123!`| Prod |
-| `SEED_HOLDER1_PASSWORD`| Seed Holder 1 password | `HolderOnePass123!` | Prod |
-| `SEED_HOLDER2_PASSWORD`| Seed Holder 2 password | `HolderTwoPass123!` | Prod |
+| `SEED_ADMIN_PASSWORD` | Seed Admin password | `<your-admin-password>` | Prod |
+| `SEED_AUDITOR_PASSWORD`| Seed Auditor password | `<your-auditor-password>` | Prod |
+| `SEED_HOLDER1_PASSWORD`| Seed Holder 1 password | `<your-holder1-password>` | Prod |
+| `SEED_HOLDER2_PASSWORD`| Seed Holder 2 password | `<your-holder2-password>` | Prod |
 | `VITE_API_BASE_URL` | Frontend API base URL | `http://localhost:8080` | Frontend |
 
 ---
@@ -135,7 +135,7 @@ When running under `prod` profile (or when seed environment variables are define
 
 ## 6. Test Suites & Execution Commands
 
-### Full Backend Integration & Concurrency Test Suite (57 Tests)
+### Full Backend Integration & Security Test Suite (61 Tests, 17 Endpoints)
 ```cmd
 cd backend\ledgerline
 .\mvnw.cmd test
@@ -145,8 +145,15 @@ cd backend\ledgerline
 - `TransfersAndIdempotencyHostileTest` (8 tests): 50-thread identical replays, bidirectional opposing transfer storms, mismatched payload rejection.
 - `AuditAndStatementsSecurityTest` (5 tests): Linear hash-chain validation, exact sequence tamper detection, auditor read-only enforcement, statement reconciliation.
 - `SchemaIntegrityTest` (16 tests): Database triggers, check constraints, append-only rules.
-- `PenetrationTest` (7 tests): Hostile penetration tests covering all 11 vulnerability categories.
-- `LedgerLineApplicationTests` & Context Tests (5 tests).
+- `PenetrationTest` (11 tests): Hostile penetration tests covering IDOR, 64KB body cap, unknown JSON fields, missing/malformed Idempotency-Key (HTTP 400), JWT tampering, and automated `THREATS.md` traceability.
+- `SecurityBaselineTest` (4 tests): CORS origin isolation, startup validation, unauthenticated 401 Problem Details.
+- `HealthControllerTest` (1 test): Liveness probe and sanitization check.
+
+### Automated Hostile Penetration Attack Suite (39 Passing Assertions, 0 Failures)
+```cmd
+powershell.exe -ExecutionPolicy Bypass -File scripts\attack\attack_suite.ps1
+```
+Executes all 10 adversarial attacks against a running instance: IDOR masking, privilege escalation, JWT abuse, idempotency replay/mismatch, integer money bounds, 50-withdrawal race condition, opposing transfer storms, self/frozen transfers, oversized/malformed payloads, and ledger conservation verification.
 
 ### Frontend Vitest Suite (13 Tests)
 ```cmd
@@ -174,7 +181,9 @@ Derived strictly from real test executions during development:
 |---|---|---|
 | **Double-Entry Conservation** | **Verified** | $\sum \text{entries} = 0$, $\sum \text{balances} = 0$, $\text{imbalanced\_transfers} = 0$. Enforced at DB level. |
 | **Idempotency Deduplication** | **Verified** | 50 identical concurrent requests result in 1 transfer and 49 replays with `Idempotent-Replayed: true`. |
-| **Idempotency Key Mismatch** | **Verified** | Reusing a key with a different payload returns HTTP 422 Problem JSON. |
+| **Idempotency Key Validation** | **Verified** | Missing or malformed header returns HTTP 400 Problem Details; reused key with different payload returns HTTP 422. |
+| **Payload Size Limit** | **Verified** | Requests exceeding 64 KB capped by filter returning HTTP 413 or 400 Problem Details without stack traces. |
+| **Unknown JSON Rejection** | **Verified** | Unknown fields rejected with HTTP 400 Bad Request Problem Details (`fail-on-unknown-properties=true`). |
 | **Deadlock Prevention** | **Verified** | Deterministic ascending UUID locking order completes opposing A$\to$B and B$\to$A storms with 0 deadlocks. |
 | **Overdraft Prevention** | **Verified** | 100 concurrent withdrawals compete for 50,000 paise; exactly 5 succeed, 95 fail with 422, final balance is 0. |
 | **Tamper Detection** | **Verified** | Direct database tampering triggers SQLSTATE 55000; bypassed row tampering is pinpointed by `/api/audit/verify`. |
@@ -184,13 +193,25 @@ Derived strictly from real test executions during development:
 | **Rate Limiting & Lockout** | **Verified** | 5 consecutive bad passwords lock account for 15 minutes; registration rate-limited. |
 | **Multi-Currency Conversion** | *Not Supported* | Single currency (INR) in minor units (paise). Cross-currency FX rates intentionally out of scope. |
 | **Distributed Tracing (Jaeger)**| *Not Supported* | Log tracing via MDC and transaction IDs; distributed OpenTelemetry collector is not configured. |
-| **Distributed Database Sharding**| *Single-Node* | Designed for single ACID PostgreSQL instance (supports up to ~1,500 TPS under connection pooling). |
+| **Distributed Database Sharding**| *Single-Node* | Designed for single ACID PostgreSQL instance; multi-shard architecture is a conceptual proposal. |
 
 ---
 
-## 8. Deployment URLs
+## 8. Deployment Status
 
-- **Live Frontend (Vercel)**: `https://ledgerline.vercel.app` *(Pending user production deployment)*
-- **Live Backend (Render)**: `https://ledgerline-backend.onrender.com` *(Pending user production deployment)*
-- **Health Check Endpoint**: `https://ledgerline-backend.onrender.com/api/health`
+- **Status**: **Prepared, not yet deployed**
+- **Artifacts Prepared**:
+  - Non-root multi-stage production [`Dockerfile`](file:///C:/Users/rites/OneDrive/Desktop/LedgerLine/Dockerfile)
+  - Production Spring profile `prod` reading database credentials and seed passwords from environment variables
+  - Automated [`DatabaseSeeder`](file:///C:/Users/rites/OneDrive/Desktop/LedgerLine/backend/ledgerline/src/main/java/com/ledgerline/config/DatabaseSeeder.java) initializing roles and customer checking accounts
+  - Vercel client SPA configuration [`vercel.json`](file:///C:/Users/rites/OneDrive/Desktop/LedgerLine/frontend/vercel.json) with catch-all route rewrites to `/index.html`
+- **Candidate Deployment Instructions**:
+  - **Backend (Render / Managed PostgreSQL)**:
+    1. Create a Managed PostgreSQL instance on Render.
+    2. Create a Web Service pointing to repository root using Docker runtime.
+    3. Set environment variable names: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION_MINUTES`, `FRONTEND_ORIGIN`, `PORT`, `SEED_ADMIN_PASSWORD`, `SEED_AUDITOR_PASSWORD`, `SEED_HOLDER1_PASSWORD`, `SEED_HOLDER2_PASSWORD`.
+  - **Frontend (Vercel)**:
+    1. Import `frontend` root on Vercel.
+    2. Set environment variable: `VITE_API_BASE_URL` pointing to backend URL.
+    3. Deploy and verify `/api/health`.
 
