@@ -39,14 +39,17 @@ public class MoneyEngineService {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final AuditService auditService;
     private final long maxMinorUnits;
 
     public MoneyEngineService(
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper,
+            AuditService auditService,
             @Value("${ledgerline.limits.max-minor-units:100000000}") long maxMinorUnits) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.auditService = auditService;
         this.maxMinorUnits = maxMinorUnits;
     }
 
@@ -184,6 +187,23 @@ public class MoneyEngineService {
         jdbcTemplate.update(
                 "INSERT INTO ledger_entries (transfer_id, account_id, amount, balance_after, created_at) VALUES (?, ?, ?, ?, ?)",
                 transferId, toAcc.id, amountMinor, newToBalance, Timestamp.from(now)
+        );
+
+        // 9.5 Append to linear audit chain in the same transaction
+        auditService.appendAudit(
+                callerId,
+                "HOLDER",
+                kind,
+                "TRANSFER",
+                transferId.toString(),
+                java.util.Map.of(
+                        "transferId", transferId.toString(),
+                        "kind", kind,
+                        "fromAccountId", fromAcc.id.toString(),
+                        "toAccountId", toAcc.id.toString(),
+                        "amountMinor", amountMinor
+                ),
+                null
         );
 
         // 10. Update idempotency record to COMPLETED with response payload

@@ -26,14 +26,17 @@ public class AccountController {
     private final JdbcTemplate jdbcTemplate;
     private final AccountAccessPolicy accountAccessPolicy;
     private final com.ledgerline.service.MoneyEngineService moneyEngineService;
+    private final com.ledgerline.service.StatementService statementService;
 
     public AccountController(
             JdbcTemplate jdbcTemplate,
             AccountAccessPolicy accountAccessPolicy,
-            com.ledgerline.service.MoneyEngineService moneyEngineService) {
+            com.ledgerline.service.MoneyEngineService moneyEngineService,
+            com.ledgerline.service.StatementService statementService) {
         this.jdbcTemplate = jdbcTemplate;
         this.accountAccessPolicy = accountAccessPolicy;
         this.moneyEngineService = moneyEngineService;
+        this.statementService = statementService;
     }
 
     @GetMapping
@@ -133,6 +136,18 @@ public class AccountController {
             headers.add("Idempotent-Replayed", "true");
         }
         return ResponseEntity.ok().headers(headers).body(response);
+    }
+
+    @GetMapping("/{id}/statement")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('AUDITOR') or (hasRole('HOLDER') and @accountAccessPolicy.canAccessAccount(authentication, #id))")
+    public ResponseEntity<com.ledgerline.dto.StatementDto> getStatement(
+            @PathVariable UUID id,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(statementService.getStatement(id, from, to, page, size, principal));
     }
 
     @PostMapping("/{id}/withdrawals")
