@@ -1,6 +1,6 @@
-# LedgerLine — Architectural Defense & System Scaling Blueprint (INTERVIEW_PREP.md)
+# LedgerLine — Architectural Defense & System Design (INTERVIEW_PREP.md)
 
-This document provides a comprehensive technical defense of LedgerLine's core architecture, an analysis of key trade-offs, and an engineering blueprint for scaling the system to **10,000 Transactions Per Second (TPS)**.
+This document provides a technical defense of LedgerLine's implemented core architecture, an analysis of key trade-offs, and a hypothetical architecture proposal for horizontal scaling beyond single-node limits.
 
 ---
 
@@ -64,42 +64,42 @@ This document provides a comprehensive technical defense of LedgerLine's core ar
 
 ---
 
-## 3. Blueprint: Scaling LedgerLine to 10,000 TPS
+## 3. Hypothetical architecture proposal (not implemented, not benchmarked)
 
-Currently, a single PostgreSQL instance executing ACID transactions with row-level locks and advisory locks handles approximately 500 to 1,500 TPS depending on hardware and disk I/O. Scaling to **10,000 TPS** requires removing shared-resource contention while preserving financial conservation and idempotency.
+In the current implemented system, a single PostgreSQL instance executes ACID transactions with deterministic pessimistic row-level locks and an advisory lock on audit chain updates. To scale horizontally beyond single-node locking boundaries while preserving financial conservation and idempotency, the following multi-shard architecture represents a conceptual scaling proposal.
 
 ```mermaid
 flowchart TD
-    subgraph Ingress ["Edge & Ingress Tier (50,000 req/sec)"]
-        LB["Cloud Load Balancer / Anycast IP"]
+    subgraph Ingress ["Edge & Ingress Tier"]
+        LB["Cloud Load Balancer"]
         WAF["WAF & DDoS Mitigation"]
         APIGW["API Gateway Cluster (Kong / Envoy)"]
     end
 
     subgraph AuthCache ["Distributed Cache & Rate Limiting"]
-        RedisCluster[("Redis Enterprise Cluster<br/>(Token Revocation, Lockout, Idempotency Pre-Lock)")]
+        RedisCluster[("Redis Cluster<br/>(Token Revocation, Lockout, Idempotency Pre-Lock)")]
     end
 
-    subgraph ServiceMesh ["Application Service Mesh (Stateless Pods)"]
-        Pod1["LedgerLine Engine Pod 1"]
-        Pod2["LedgerLine Engine Pod 2"]
-        PodN["LedgerLine Engine Pod N"]
+    subgraph ServiceMesh ["Application Service Mesh (Stateless Nodes)"]
+        Pod1["LedgerLine Engine Node 1"]
+        Pod2["LedgerLine Engine Node 2"]
+        PodN["LedgerLine Engine Node N"]
     end
 
     subgraph PartitionRouter ["Consistent Hashing Shard Router"]
-        Router["Virtual Node Hash Ring (MurmurHash3)"]
+        Router["Virtual Node Hash Ring (e.g. MurmurHash3)"]
     end
 
-    subgraph DBShards ["Sharded Database Tier (16 PostgreSQL Shards)"]
+    subgraph DBShards ["Sharded Database Tier (PostgreSQL Shards)"]
         Shard1[("Shard 01: Accounts 0x00-0x0F")]
         Shard2[("Shard 02: Accounts 0x10-0x1F")]
-        ShardN[("Shard 16: Accounts 0xF0-0xFF")]
+        ShardN[("Shard N: Accounts 0xF0-0xFF")]
     end
 
     subgraph EventStream ["Decoupled Audit Pipeline"]
-        Kafka["Kafka Event Stream<br/>(Partitioned by Account UUID)"]
+        Kafka["Kafka Event Stream<br/>(Partitioned by Account ID)"]
         AuditConsumers["Audit Hash Chain Consumer Workers"]
-        ColdStore[("WORM Storage / AWS S3 Glacier<br/>(Sealed Hash Chunks)")]
+        ColdStore[("WORM / Object Storage<br/>(Sealed Hash Chunks)")]
     end
 
     LB --> WAF --> APIGW
@@ -113,44 +113,42 @@ flowchart TD
 ```
 
 ### 3.1 Step 1: Distributed Sharding by Account UUID
-- **Mechanism**: Partition the `accounts`, `transfers`, and `ledger_entries` tables across 16 PostgreSQL shards using consistent hashing on `account_id` (e.g. MurmurHash3 with 256 virtual nodes).
-- **Intra-Shard Transfers**: When both `fromAccountId` and `toAccountId` reside on the same database shard (which occurs $\approx 1/16$ or $6.25\%$ of the time), the transfer executes locally with the current deterministic ascending UUID locking logic at full ACID speed.
+- **Mechanism**: Partition `accounts`, `transfers`, and `ledger_entries` across multiple PostgreSQL shard instances using consistent hashing on `account_id`.
+- **Intra-Shard Transfers**: When both `fromAccountId` and `toAccountId` map to the same shard instance, transactions execute locally using deterministic ascending UUID locking within a single database transaction.
 - **Cross-Shard Transfers (Two-Phase Commit / Orchestrated Saga)**:
-  - For transfers spanning two shards, use an Orchestrated Saga backed by a high-performance state machine:
+  - When accounts reside on separate database shards, cross-shard atomicity requires an Orchestrated Saga:
     1. **Prepare Phase**: Shard A places a conditional hold/reservation on the sender's balance.
     2. **Commit Phase**: Shard B credits the recipient account.
-    3. **Finalize Phase**: Shard A converts the hold into a completed debit.
-  - If Shard B fails (e.g., account frozen), a compensating transaction on Shard A releases the reservation.
+    3. **Finalize Phase**: Shard A converts the hold into a settled debit.
+  - If Shard B rejects the credit (e.g., account frozen), a compensating transaction on Shard A releases the hold.
 
 ### 3.2 Step 2: High-Throughput Audit Streaming (Decoupled Hash Batching)
-- **Current Bottleneck**: `pg_advisory_xact_lock(74291847129)` serializes all audit writes into a single global queue, capping audit throughput at ~1,500 appends/second.
-- **10,000 TPS Solution (Epoch-Based Merkle Trees)**:
-  1. Transfer transactions publish signed audit events directly to an Apache Kafka topic partitioned by account shard.
-  2. Audit worker nodes process incoming events in micro-batches (e.g., every 100 milliseconds or 1,000 events).
-  3. For each micro-batch, compute a Merkle Tree. Chained root hashes are committed to a dedicated immutable audit ledger:
+- **Current Bottleneck**: `pg_advisory_xact_lock(74291847129)` serializes all audit writes into a single sequential lock queue, ensuring absolute ordering at the cost of concurrency.
+- **Proposed Decoupled Hash Batching (Epoch-Based Merkle Trees)**:
+  1. Transfer transactions publish signed audit events to an event stream (e.g. Apache Kafka) partitioned by account shard.
+  2. Dedicated audit workers consume incoming events in time-bounded micro-batches.
+  3. For each micro-batch, compute a Merkle Tree and chain the batch root hash into the global audit log:
      $$\text{RootHash}_T = \text{SHA-256}(\text{RootHash}_{T-1} \parallel \text{MerkleRoot}(\text{Events}_T))$$
-  4. This decouples transaction commit latency from audit hashing while preserving cryptographic tamper-evidence.
+  4. This architecture would decouple application transaction latency from audit serialization while maintaining cryptographic tamper-evidence.
 
 ### 3.3 Step 3: Read-Replica Offloading for Statements and Audits
-- Separate write paths from analytical query paths using PostgreSQL streaming replication:
-  - **Write Cluster**: Primary nodes handle exclusive updates, inserts, and transfers.
-  - **Read Cluster**: 3 to 5 read-only replica nodes per shard serve:
+- Separate transactional write workloads from analytical query paths using PostgreSQL streaming replication:
+  - **Write Instances**: Primary nodes handle balance updates, ledger entry inserts, and transfers.
+  - **Read Replicas**: Dedicated read replicas serve:
     - Statement generation (`GET /api/accounts/{id}/statement`)
     - Historical ledger tape queries
-    - Conservation verification (`GET /api/ledger/conservation`)
-  - Configured with `replica-lag` monitoring to ensure statement consistency.
+    - Conservation checks (`GET /api/ledger/conservation`)
+  - Configured with replication lag monitoring to ensure read consistency.
 
 ### 3.4 Step 4: Redis Distributed Pre-Locking for Idempotency
-- **Mechanism**: When a request arrives with an `Idempotency-Key`, the API Gateway issues a Redis atomic command:
+- **Mechanism**: Upon request arrival with an `Idempotency-Key`, an edge or gateway cache performs an atomic test-and-set:
   ```redis
   SET idempotency:{userId}:{key} "IN_PROGRESS" NX EX 120
   ```
-- **Benefit**: If an automated script fires 100 concurrent requests with the identical key, Redis drops 99 requests at the gateway tier, protecting database connection pools and row locks from synthetic storm contention.
+- **Benefit**: Replayed requests during in-flight operations can be handled before hitting relational connection pools and row locks.
 
-### 3.5 Step 5: Hardware & Connection Pool Sizing for 10,000 TPS
-- **Connection Pooling**: Deploy **PgBouncer** in transaction pooling mode in front of each PostgreSQL shard, maintaining 50–100 persistent server connections while multiplexing 5,000 client application connections.
-- **Database Node Sizing**:
-  - 16 PostgreSQL shards on cloud instances with 32 vCPUs, 128 GB RAM, and Provisioned IOPS NVMe SSDs (15,000+ IOPS per shard).
-  - Write-Ahead Logging (WAL) configured with `wal_compression = on`, `synchronous_commit = off` (with battery-backed/NVMe write cache), or grouped commits (`commit_delay = 1000`).
-- **Application Sizing**: 20 Kubernetes stateless pods running Spring Boot with Virtual Threads (Project Loom enabled in Java 21) consuming $\le 2$ GB RAM each.
+### 3.5 Step 5: Conceptual Infrastructure & Connection Pool Sizing
+- **Connection Pooling**: Deploy **PgBouncer** in transaction pooling mode in front of each PostgreSQL instance to multiplex application threads onto persistent server connections.
+- **Database Tuning**: Configure Write-Ahead Logging (WAL) with group commit parameters (`commit_delay`), provision dedicated storage volumes for transaction logs, and size connection pools to match physical CPU core counts.
+- **Application Nodes**: Stateless Spring Boot services configured with virtual threads (Project Loom) to handle high-concurrency I/O waiting without thread exhaustion.
 
