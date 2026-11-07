@@ -2,7 +2,7 @@
 # LedgerLine Attack Suite (scripts/attack/attack_suite.ps1)
 # ==============================================================================
 # Comprehensive automated penetration test suite executing all 10 attack
-# vectors against a running LedgerLine instance (localhost:8080 by default).
+# vectors against a running LedgerLine instance.
 # ==============================================================================
 
 param(
@@ -15,6 +15,11 @@ Write-Host "====================================================================
 Write-Host " LEDGERLINE HOSTILE PENETRATION ATTACK SUITE" -ForegroundColor Cyan
 Write-Host " Target: $BaseUrl" -ForegroundColor Cyan
 Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host " [WARNING] This suite generates hostile traffic, triggers rate-limits," -ForegroundColor Yellow
+Write-Host " creates transient accounts, and sends rapid concurrent requests." -ForegroundColor Yellow
+Write-Host " STRICT CONSTRAINT: ONLY target your own deployment." -ForegroundColor Yellow
+Write-Host ""
 
 $script:TotalPassed = 0
 $script:TotalFailed = 0
@@ -58,7 +63,7 @@ function Invoke-Api {
             Method = $Method
             Uri = $url
             Headers = $headers
-            TimeoutSec = 15
+            TimeoutSec = 30
             UseBasicParsing = $true
         }
         if ($Body) { $params["Body"] = $Body }
@@ -92,20 +97,51 @@ function Invoke-Api {
 # ------------------------------------------------------------------------------
 Write-Host "`n[SETUP] Initializing test accounts and roles..." -ForegroundColor Yellow
 
-# Seed Admin and Auditor in DB via psql if not existing
-$env:PGPASSWORD = "root"
-$adminId = "00000000-0000-0000-0000-000000000001"
-$auditorId = "00000000-0000-0000-0000-000000000002"
-$seedSql = @"
-INSERT INTO users (id, email, password_hash, role, enabled)
-VALUES 
-  ('$adminId', 'admin-atk@ledgerline.local', '`$2a`$12`$7EqJtq98hPqEX7fNZaFWoO.eP7E8K.c8k6F57qBq5g2s6w5d6K6mK', 'ADMIN', true),
-  ('$auditorId', 'auditor-atk@ledgerline.local', '`$2a`$12`$7EqJtq98hPqEX7fNZaFWoO.eP7E8K.c8k6F57qBq5g2s6w5d6K6mK', 'AUDITOR', true)
-ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role, enabled = true;
-"@
-& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U root -p 5433 -h 127.0.0.1 -d ledgerline_db -c $seedSql > $null 2>&1
+$adminToken = $null
+$auditorToken = $null
 
-# Register Holder 1 and Holder 2
+# Priority 1: If environment variables for seed passwords are provided, authenticate via API
+if ($env:SEED_ADMIN_PASSWORD) {
+    $loginRes = Invoke-Api -Method "POST" -Path "/api/auth/login" -Body "{`"email`":`"admin@ledgerline.local`",`"password`":`"$($env:SEED_ADMIN_PASSWORD)`"}"
+    if ($loginRes.StatusCode -eq 200) {
+        $adminToken = ($loginRes.Content | ConvertFrom-Json).token
+        Write-Host "  [AUTH] Admin authenticated via SEED_ADMIN_PASSWORD" -ForegroundColor Green
+    }
+}
+
+if ($env:SEED_AUDITOR_PASSWORD) {
+    $loginRes = Invoke-Api -Method "POST" -Path "/api/auth/login" -Body "{`"email`":`"auditor@ledgerline.local`",`"password`":`"$($env:SEED_AUDITOR_PASSWORD)`"}"
+    if ($loginRes.StatusCode -eq 200) {
+        $auditorToken = ($loginRes.Content | ConvertFrom-Json).token
+        Write-Host "  [AUTH] Auditor authenticated via SEED_AUDITOR_PASSWORD" -ForegroundColor Green
+    }
+}
+
+# Priority 2: Local development fallback via known dev JWT secret
+function Get-JwtToken([string]$subject, [string]$role) {
+    $headerB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes('{"alg":"HS256"}')).TrimEnd('=').Replace('+','-').Replace('/','_')
+    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $exp = $now + 3600
+    $payloadJson = "{`"sub`":`"$subject`",`"role`":`"$role`",`"jti`":`"$([guid]::NewGuid().ToString())`",`"iat`":$now,`"exp`":$exp}"
+    $payloadB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($payloadJson)).TrimEnd('=').Replace('+','-').Replace('/','_')
+    
+    $secretStr = if ($env:JWT_SECRET) { $env:JWT_SECRET } else { "dev_mode_only_secret_key_at_least_32_bytes_long_abcdef123456" }
+    $secretBytes = [System.Text.Encoding]::UTF8.GetBytes($secretStr)
+    $hmac = New-Object System.Security.Cryptography.HMACSHA256
+    $hmac.Key = $secretBytes
+    $sigBytes = $hmac.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$headerB64.$payloadB64"))
+    $sigB64 = [Convert]::ToBase64String($sigBytes).TrimEnd('=').Replace('+','-').Replace('/','_')
+    return "$headerB64.$payloadB64.$sigB64"
+}
+
+if (-not $adminToken) {
+    $adminToken = Get-JwtToken -subject "00000000-0000-0000-0000-000000000001" -role "ADMIN"
+}
+if (-not $auditorToken) {
+    $auditorToken = Get-JwtToken -subject "00000000-0000-0000-0000-000000000002" -role "AUDITOR"
+}
+
+# Register Holder 1 and Holder 2 dynamically
 $uid = [guid]::NewGuid().ToString().Substring(0,8)
 $h1Email = "holder1-$uid@atk.local"
 $h2Email = "holder2-$uid@atk.local"
@@ -132,25 +168,6 @@ $depRes = Invoke-Api -Method "POST" -Path "/api/accounts/$acc1/deposits" -Token 
 # Fund Account 2 with 50,000 paise (₹500.00)
 $depKey2 = [guid]::NewGuid().ToString()
 $depRes2 = Invoke-Api -Method "POST" -Path "/api/accounts/$acc2/deposits" -Token $token2 -IdempotencyKey $depKey2 -Body "{`"amountMinor`": 50000}"
-
-# Generate Admin and Auditor tokens directly using the known dev secret key
-function Get-JwtToken([string]$subject, [string]$role) {
-    $headerB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes('{"alg":"HS256"}')).TrimEnd('=').Replace('+','-').Replace('/','_')
-    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    $exp = $now + 3600
-    $payloadJson = "{`"sub`":`"$subject`",`"role`":`"$role`",`"jti`":`"$([guid]::NewGuid().ToString())`",`"iat`":$now,`"exp`":$exp}"
-    $payloadB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($payloadJson)).TrimEnd('=').Replace('+','-').Replace('/','_')
-    
-    $secretBytes = [System.Text.Encoding]::UTF8.GetBytes("dev_mode_only_secret_key_at_least_32_bytes_long_abcdef123456")
-    $hmac = New-Object System.Security.Cryptography.HMACSHA256
-    $hmac.Key = $secretBytes
-    $sigBytes = $hmac.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$headerB64.$payloadB64"))
-    $sigB64 = [Convert]::ToBase64String($sigBytes).TrimEnd('=').Replace('+','-').Replace('/','_')
-    return "$headerB64.$payloadB64.$sigB64"
-}
-
-$adminToken = Get-JwtToken -subject $adminId -role "ADMIN"
-$auditorToken = Get-JwtToken -subject $auditorId -role "AUDITOR"
 
 Write-Host "Holder 1 Acc: $acc1 (Balance: 100000)"
 Write-Host "Holder 2 Acc: $acc2 (Balance: 50000)"

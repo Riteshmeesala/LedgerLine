@@ -3,16 +3,13 @@ import { apiClient } from '../api/client';
 import { formatINR } from '../utils/money';
 import { 
   Users, UserPlus, Shield, Snowflake, Sun, AlertTriangle, 
-  CheckCircle2, Key, Lock, RefreshCw, Cpu
+  CheckCircle2, Key, Lock, RefreshCw
 } from 'lucide-react';
 
 /**
  * Admin Panel View.
  *
- * SECURITY NOTE:
- * Administrative user provisioning and account freeze/unfreeze actions are restricted to ROLE_ADMIN.
- * The client hides this view from non-admin users as a UX affordance, but security is enforced
- * by the server via `@PreAuthorize("hasRole('ADMIN')")` on all `/api/admin/**` endpoints.
+ * Administrative user provisioning and account freeze/unfreeze controls restricted to ROLE_ADMIN.
  */
 export default function AdminPanel() {
   const [accounts, setAccounts] = useState([]);
@@ -52,7 +49,7 @@ export default function AdminPanel() {
         method: 'POST',
         body: JSON.stringify({ email: email.trim(), password, role })
       });
-      setSuccessMsg(`User ${created.email} successfully provisioned with role ${created.role}.`);
+      setSuccessMsg(`User ${created.email} successfully created with role ${created.role}.`);
       setEmail('');
       setPassword('');
       setRole('HOLDER');
@@ -72,7 +69,7 @@ export default function AdminPanel() {
 
     try {
       await apiClient(endpoint, { method: 'POST' });
-      setSuccessMsg(`Account ${accountId.slice(0, 8)}... status updated to ${currentStatus === 'ACTIVE' ? 'FROZEN' : 'ACTIVE'}.`);
+      setSuccessMsg(`Account status updated to ${currentStatus === 'ACTIVE' ? 'FROZEN' : 'ACTIVE'}.`);
       fetchAccounts();
     } catch (err) {
       setError(err.detail || err.message || 'Failed to update account status.');
@@ -82,55 +79,55 @@ export default function AdminPanel() {
   return (
     <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '2rem 1.5rem' }}>
       {/* Top Header */}
-      <div className="hud-card" style={{ marginBottom: '2.5rem', padding: '2rem' }}>
+      <div className="hud-card" style={{ marginBottom: '2rem', padding: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
               <span className="live-beacon" />
-              <span className="hud-tag violet">ADMINISTRATIVE OPERATIONS CONSOLE</span>
-              <span className="hud-tag cyan">ROLE: ROLE_ADMIN</span>
+              <span className="hud-tag violet">Administration</span>
+              <span className="hud-tag cyan">Role: Admin</span>
             </div>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+            <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, color: '#0f172a' }}>
               System <span className="glow-text-violet">Administration</span>
             </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginTop: '0.4rem' }}>
-              Provision enterprise users, assign access roles, and manage high-integrity account freeze controls.
+            <p style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '0.4rem' }}>
+              Create system users, manage access roles, and monitor or freeze customer accounts.
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
             <button onClick={fetchAccounts} className="btn btn-secondary">
-              <RefreshCw size={16} /> Refresh State
+              <RefreshCw size={16} /> Refresh Accounts
             </button>
           </div>
         </div>
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '2rem', color: '#fca5a5', display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '2rem', color: '#dc2626', display: 'flex', gap: '0.8rem', alignItems: 'center', fontWeight: 500 }}>
           <AlertTriangle size={20} /> <span>{error}</span>
         </div>
       )}
 
       {successMsg && (
-        <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '2rem', color: '#34d399', display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '2rem', color: '#166534', display: 'flex', gap: '0.8rem', alignItems: 'center', fontWeight: 500 }}>
           <CheckCircle2 size={20} /> <span>{successMsg}</span>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         {/* Create User Form */}
         <div className="hud-card" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.4rem' }}>
-            <UserPlus size={20} style={{ color: 'var(--neon-violet)' }} />
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
-              Provision New User
+            <UserPlus size={20} style={{ color: 'var(--brand-primary)' }} />
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+              Create New User
             </h2>
           </div>
 
           <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#475569', marginBottom: '0.4rem', fontWeight: 600 }}>
                 Email Address
               </label>
               <input
@@ -139,13 +136,13 @@ export default function AdminPanel() {
                 className="form-input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="analyst@ledgerline.local"
+                placeholder="user@example.com"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>
-                Initial Password
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#475569', marginBottom: '0.4rem', fontWeight: 600 }}>
+                Temporary Password
               </label>
               <input
                 type="password"
@@ -155,47 +152,47 @@ export default function AdminPanel() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Minimum 8 characters"
               />
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-                Hashed with BCrypt (12 rounds) before persistence.
+              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem' }}>
+                Securely encrypted with industry-standard BCrypt before saving.
               </div>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>
-                Assigned Role
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#475569', marginBottom: '0.4rem', fontWeight: 600 }}>
+                Permission Role
               </label>
               <select className="form-input" value={role} onChange={(e) => setRole(e.target.value)}>
-                <option value="HOLDER" style={{ background: '#0a101e' }}>HOLDER (Customer Account & Money Movements)</option>
-                <option value="AUDITOR" style={{ background: '#0a101e' }}>AUDITOR (Read-Only Cryptographic Audit Inspection)</option>
-                <option value="ADMIN" style={{ background: '#0a101e' }}>ADMIN (Full Administration & Account Control)</option>
+                <option value="HOLDER">Customer (Banking, deposits & transfers)</option>
+                <option value="AUDITOR">Auditor (Read-only ledger & integrity logs)</option>
+                <option value="ADMIN">Administrator (Full system management)</option>
               </select>
             </div>
 
             <button type="submit" disabled={userLoading} className="btn btn-primary" style={{ marginTop: '0.5rem', padding: '0.8rem' }}>
-              <UserPlus size={16} /> {userLoading ? 'Provisioning...' : 'Provision User Credentials'}
+              <UserPlus size={16} /> {userLoading ? 'Creating User...' : 'Create User'}
             </button>
           </form>
         </div>
 
         {/* Account Status Administration */}
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        <div className="hud-card" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.4rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <Users size={20} style={{ color: 'var(--neon-cyan)' }} />
-              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
-                Account Status Management
+              <Users size={20} style={{ color: 'var(--brand-primary)' }} />
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                Account Controls
               </h2>
             </div>
-            <span className="hud-tag cyan">{accounts.length} Nodes</span>
+            <span className="hud-tag cyan">{accounts.length} Accounts</span>
           </div>
 
           {loading ? (
-            <div style={{ color: 'var(--text-muted)', padding: '2rem', textAlign: 'center' }}>
-              Loading account registry...
+            <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>
+              Loading accounts...
             </div>
           ) : accounts.length === 0 ? (
-            <div style={{ color: 'var(--text-muted)', padding: '2rem', textAlign: 'center' }}>
-              No accounts registered in system.
+            <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>
+              No accounts registered yet.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', maxHeight: '460px', overflowY: 'auto' }}>
@@ -204,20 +201,21 @@ export default function AdminPanel() {
                   key={acc.id}
                   className="stat-tile"
                   style={{
-                    padding: '1rem 1.2rem',
+                    padding: '1rem 1.25rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '1rem'
+                    gap: '1rem',
+                    background: '#ffffff'
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{acc.name}</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>{acc.name}</div>
                     <div className="tabular-nums glow-text-cyan" style={{ fontSize: '1.05rem', fontWeight: 800 }}>
                       {formatINR(acc.balance)}
                     </div>
-                    <div className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      UUID: {acc.id.slice(0, 8)}...{acc.id.slice(-4)}
+                    <div className="mono" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                      ID: {acc.id.slice(0, 8)}...{acc.id.slice(-4)}
                     </div>
                   </div>
 

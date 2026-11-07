@@ -4,8 +4,7 @@ import { formatINR, parseINRToMinorUnits } from '../utils/money';
 import { generateIdempotencyKey } from '../utils/idempotency';
 import { 
   Wallet, Plus, ArrowUpRight, ArrowDownLeft, Send, RefreshCw, 
-  CheckCircle2, AlertTriangle, Clock, ShieldCheck, Copy, Check,
-  Cpu, Sparkles, TrendingUp
+  CheckCircle2, AlertTriangle, Clock, Copy, Check, ShieldCheck
 } from 'lucide-react';
 
 export default function HolderDashboard() {
@@ -27,7 +26,7 @@ export default function HolderDashboard() {
   const [currentIdempotencyKey, setCurrentIdempotencyKey] = useState('');
   const [copiedId, setCopiedId] = useState(null);
 
-  // Live Ledger Tape entries
+  // Live Activity entries
   const [tapeEntries, setTapeEntries] = useState([]);
 
   const copyToClipboard = (text, id) => {
@@ -65,7 +64,7 @@ export default function HolderDashboard() {
     fetchAccounts();
   }, []);
 
-  // Poll live tape every 5 seconds
+  // Auto-refresh activity every 5 seconds
   useEffect(() => {
     fetchTapeEntries();
     const interval = setInterval(fetchTapeEntries, 5000);
@@ -171,111 +170,115 @@ export default function HolderDashboard() {
     }
   };
 
-  // Compute total liquidity across active accounts
+  // Compute total balance across accounts
   const totalBalance = accounts.reduce((acc, curr) => acc + (BigInt(curr.balance) || 0n), 0n);
 
   if (loading) {
     return (
       <div style={{ padding: '6rem 2rem', textAlign: 'center' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.8rem', color: 'var(--neon-cyan)' }}>
-          <RefreshCw size={24} className="spin-animation" style={{ animation: 'spin 1.5s linear infinite' }} />
-          <span style={{ fontSize: '1.1rem', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)' }}>
-            INITIALIZING LEDGER ENGINE...
-          </span>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.8rem', color: '#2563eb' }}>
+          <RefreshCw size={24} style={{ animation: 'spin 1.5s linear infinite' }} />
+          <span style={{ fontSize: '1.05rem', fontWeight: 600 }}>Loading your accounts...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '2rem 1.5rem' }}>
-      {/* Top Futuristic Hero HUD Card */}
-      <div className="hud-card" style={{ marginBottom: '2.5rem', padding: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '1.8rem' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      {/* Hero Overview Card */}
+      <div
+        className="glass-panel"
+        style={{
+          marginBottom: '2rem',
+          padding: '2rem',
+          background: '#ffffff',
+          borderRadius: '16px',
+          boxShadow: 'var(--shadow-sm)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '1.5rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
               <span className="live-beacon" />
-              <span className="hud-tag cyan">SYSTEM ONLINE // NODE: IN-MUM-1</span>
-              <span className="hud-tag emerald">STRICT DOUBLE-ENTRY (PAISE)</span>
+              <span className="hud-tag emerald">Verified & Protected</span>
+              <span className="hud-tag cyan">Real-Time Sync</span>
             </div>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              Account <span className="glow-text-cyan">Portfolio</span>
+            <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
+              Account Portfolio
             </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginTop: '0.4rem' }}>
-              Pessimistic-mutex protected ledger accounts settled in minor units with cryptographic idempotency.
+            <p style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '0.2rem' }}>
+              All transactions are settled instantly with double-entry precision and duplicate-charge protection.
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-            <button onClick={() => openActionModal('CREATE_ACCOUNT')} className="btn btn-primary">
-              <Plus size={18} /> Open New Account
-            </button>
-          </div>
+          <button onClick={() => openActionModal('CREATE_ACCOUNT')} className="btn btn-primary">
+            <Plus size={18} /> Open New Account
+          </button>
         </div>
 
-        {/* Portfolio Stats Bar */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.2rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(148, 163, 184, 0.1)' }}>
+        {/* Portfolio Stats Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.2rem', paddingTop: '1.2rem', borderTop: '1px solid #f1f5f9' }}>
           <div className="stat-tile">
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em', fontWeight: 600, marginBottom: '0.3rem' }}>
-              TOTAL PORTFOLIO LIQUIDITY
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+              Total Portfolio Balance
             </div>
-            <div className="tabular-nums glow-text-cyan" style={{ fontSize: '1.9rem', fontWeight: 800 }}>
+            <div className="tabular-nums" style={{ fontSize: '1.9rem', fontWeight: 800, color: '#2563eb' }}>
               {formatINR(totalBalance)}
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-              Raw minor units: <code className="mono">{totalBalance.toString()} paise</code>
+            <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.2rem' }}>
+              Exact minor units: <code className="mono">{totalBalance.toString()} paise</code>
             </div>
           </div>
 
           <div className="stat-tile">
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em', fontWeight: 600, marginBottom: '0.3rem' }}>
-              MANAGED ACCOUNTS
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+              Active Accounts
             </div>
-            <div className="tabular-nums" style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {accounts.length} <span style={{ fontSize: '1rem', color: 'var(--neon-emerald)', fontWeight: 600 }}>Active Nodes</span>
+            <div className="tabular-nums" style={{ fontSize: '1.9rem', fontWeight: 800, color: '#0f172a' }}>
+              {accounts.length} <span style={{ fontSize: '1rem', color: '#059669', fontWeight: 600 }}>Active</span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-              Selected: <code className="mono">{selectedAccount ? selectedAccount.name : 'None'}</code>
+            <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.2rem' }}>
+              Selected: <strong style={{ color: '#0f172a' }}>{selectedAccount ? selectedAccount.name : 'None'}</strong>
             </div>
           </div>
 
           <div className="stat-tile">
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em', fontWeight: 600, marginBottom: '0.3rem' }}>
-              MUTEX & CONCURRENCY MODE
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+              Safety Guarantee
             </div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--neon-violet)', marginTop: '0.2rem' }}>
-              Pessimistic Lock Order
+            <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#059669', marginTop: '0.2rem' }}>
+              Zero-Loss Protected
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
-              UUID ascending deadlock-free acquisition
+            <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.4rem' }}>
+              Automated lock ordering prevents race conditions
             </div>
           </div>
         </div>
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '2rem', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '1.8rem', color: '#be123c', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
           <AlertTriangle size={20} />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Account Cards Section Header */}
+      {/* Account Cards Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <Wallet size={20} style={{ color: 'var(--neon-cyan)' }} />
-          <h2 style={{ fontSize: '1.3rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
-            Active Accounts
+          <Wallet size={20} style={{ color: '#2563eb' }} />
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+            My Accounts ({accounts.length})
           </h2>
-          <span className="hud-tag">{accounts.length} Connected</span>
         </div>
-        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          Click an account card to bind the Live Ledger Tape
+        <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
+          Click an account to view its activity below
         </span>
       </div>
 
       {/* Account Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
         {accounts.map((acc) => {
           const isSelected = selectedAccount?.id === acc.id;
           return (
@@ -285,20 +288,20 @@ export default function HolderDashboard() {
               style={{
                 padding: '1.6rem',
                 cursor: 'pointer',
-                border: isSelected ? '1px solid var(--neon-cyan)' : '1px solid var(--border-subtle)',
-                boxShadow: isSelected ? '0 0 25px rgba(0, 245, 255, 0.2), inset 0 1px 0 rgba(0, 245, 255, 0.3)' : undefined,
-                background: isSelected ? 'linear-gradient(135deg, rgba(16, 32, 60, 0.85) 0%, rgba(10, 20, 40, 0.95) 100%)' : undefined
+                border: isSelected ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                background: '#ffffff',
+                boxShadow: isSelected ? 'var(--shadow-md)' : 'var(--shadow-sm)'
               }}
               onClick={() => setSelectedAccount(acc)}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: isSelected ? 'rgba(0, 245, 255, 0.15)' : 'rgba(148, 163, 184, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: isSelected ? '1px solid rgba(0, 245, 255, 0.4)' : '1px solid var(--border-subtle)' }}>
-                    <Wallet size={18} style={{ color: isSelected ? 'var(--neon-cyan)' : 'var(--text-secondary)' }} />
+                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: isSelected ? '#eff6ff' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: isSelected ? '1px solid #bfdbfe' : '1px solid #e2e8f0', color: isSelected ? '#2563eb' : '#64748b' }}>
+                    <Wallet size={20} />
                   </div>
                   <div>
-                    <span style={{ fontWeight: 700, fontSize: '1.05rem', display: 'block' }}>{acc.name}</span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{acc.type} ACCOUNT</span>
+                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#0f172a', display: 'block' }}>{acc.name}</span>
+                    <span style={{ fontSize: '0.74rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{acc.type} ACCOUNT</span>
                   </div>
                 </div>
 
@@ -308,28 +311,28 @@ export default function HolderDashboard() {
               </div>
 
               {/* Balance Display */}
-              <div style={{ marginBottom: '1.2rem', padding: '1rem', background: 'rgba(5, 10, 20, 0.5)', borderRadius: '10px', border: '1px solid rgba(148, 163, 184, 0.08)' }}>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', letterSpacing: '0.06em', fontWeight: 600, marginBottom: '0.2rem' }}>
-                  SETTLED BALANCE
+              <div style={{ marginBottom: '1.2rem', padding: '1rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                <div style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
+                  Available Balance
                 </div>
-                <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a' }}>
                   {formatINR(acc.balance)}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--neon-cyan)', marginTop: '0.2rem' }}>
-                  paise: <code className="mono">{acc.balance}</code>
+                <div style={{ fontSize: '0.74rem', color: '#2563eb', marginTop: '0.2rem' }}>
+                  Raw balance: <code className="mono">{acc.balance} paise</code>
                 </div>
               </div>
 
               {/* Account ID with copy */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '1.3rem', background: 'rgba(15, 23, 42, 0.5)', padding: '0.4rem 0.6rem', borderRadius: '6px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)' }}>UUID: {acc.id.slice(0, 8)}...{acc.id.slice(-4)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem', color: '#64748b', marginBottom: '1.2rem', background: '#f1f5f9', padding: '0.45rem 0.75rem', borderRadius: '8px' }}>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>ID: {acc.id.slice(0, 8)}...{acc.id.slice(-4)}</span>
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); copyToClipboard(acc.id, acc.id); }}
-                  style={{ background: 'transparent', border: 'none', color: copiedId === acc.id ? 'var(--neon-emerald)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem' }}
-                  title="Copy full UUID"
+                  style={{ background: 'transparent', border: 'none', color: copiedId === acc.id ? '#059669' : '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.74rem', fontWeight: 600 }}
+                  title="Copy account ID"
                 >
-                  {copiedId === acc.id ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                  {copiedId === acc.id ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy ID</>}
                 </button>
               </div>
 
@@ -339,25 +342,25 @@ export default function HolderDashboard() {
                   onClick={(e) => { e.stopPropagation(); openActionModal('DEPOSIT', acc); }}
                   disabled={acc.status === 'FROZEN'}
                   className="btn btn-secondary"
-                  style={{ flex: 1, padding: '0.5rem 0.4rem', fontSize: '0.82rem' }}
+                  style={{ flex: 1, padding: '0.5rem 0.4rem', fontSize: '0.84rem' }}
                 >
-                  <ArrowDownLeft size={15} style={{ color: 'var(--neon-emerald)' }} /> Deposit
+                  <ArrowDownLeft size={15} style={{ color: '#059669' }} /> Deposit
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); openActionModal('WITHDRAW', acc); }}
                   disabled={acc.status === 'FROZEN' || acc.balance <= 0}
                   className="btn btn-secondary"
-                  style={{ flex: 1, padding: '0.5rem 0.4rem', fontSize: '0.82rem' }}
+                  style={{ flex: 1, padding: '0.5rem 0.4rem', fontSize: '0.84rem' }}
                 >
-                  <ArrowUpRight size={15} style={{ color: 'var(--neon-crimson)' }} /> Withdraw
+                  <ArrowUpRight size={15} style={{ color: '#e11d48' }} /> Withdraw
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); openActionModal('TRANSFER', acc); }}
                   disabled={acc.status === 'FROZEN' || acc.balance <= 0}
-                  className="btn btn-secondary"
-                  style={{ flex: 1, padding: '0.5rem 0.4rem', fontSize: '0.82rem' }}
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: '0.5rem 0.4rem', fontSize: '0.84rem' }}
                 >
-                  <Send size={15} style={{ color: 'var(--neon-cyan)' }} /> Transfer
+                  <Send size={15} /> Transfer
                 </button>
               </div>
             </div>
@@ -365,66 +368,65 @@ export default function HolderDashboard() {
         })}
       </div>
 
-      {/* Live Ledger Tape */}
-      <div className="glass-panel" style={{ padding: '2rem' }}>
+      {/* Activity Section */}
+      <div className="glass-panel" style={{ padding: '2rem', background: '#ffffff' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span className="live-beacon" />
-            <Clock size={20} style={{ color: 'var(--neon-cyan)' }} />
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
-              Live Ledger Tape
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <Clock size={20} style={{ color: '#2563eb' }} />
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+              Recent Account Activity
             </h2>
-            <span className="hud-tag cyan">STREAMING // AUTO-POLL (5S)</span>
+            <span className="hud-tag cyan">Auto-Updated</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Bound to: <strong style={{ color: 'var(--neon-cyan)' }}>{selectedAccount ? selectedAccount.name : 'All'}</strong>
+            <span style={{ fontSize: '0.84rem', color: '#64748b' }}>
+              Showing: <strong style={{ color: '#0f172a' }}>{selectedAccount ? selectedAccount.name : 'All Accounts'}</strong>
             </span>
-            <button onClick={fetchTapeEntries} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+            <button onClick={fetchTapeEntries} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}>
               <RefreshCw size={14} /> Refresh
             </button>
           </div>
         </div>
 
         {tapeEntries.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.95rem', background: 'rgba(10, 16, 30, 0.4)', borderRadius: '12px' }}>
-            No recent ledger entries found on this account.
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b', fontSize: '0.95rem', background: '#f8fafc', borderRadius: '12px' }}>
+            No recent activity recorded for this account.
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  <th style={{ padding: '0.8rem 1rem' }}>Seq #</th>
-                  <th style={{ padding: '0.8rem 1rem' }}>Timestamp</th>
-                  <th style={{ padding: '0.8rem 1rem' }}>Direction</th>
+                <tr style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ padding: '0.8rem 1rem' }}>Entry #</th>
+                  <th style={{ padding: '0.8rem 1rem' }}>Time</th>
+                  <th style={{ padding: '0.8rem 1rem' }}>Type</th>
                   <th style={{ padding: '0.8rem 1rem' }}>Amount</th>
                   <th style={{ padding: '0.8rem 1rem' }}>Balance After</th>
-                  <th style={{ padding: '0.8rem 1rem' }}>Transfer UUID</th>
+                  <th style={{ padding: '0.8rem 1rem' }}>Reference ID</th>
                 </tr>
               </thead>
               <tbody>
                 {tapeEntries.map((entry) => (
-                  <tr key={entry.id} style={{ borderBottom: '1px solid rgba(148, 163, 184, 0.08)', transition: 'background 0.15s ease' }}>
-                    <td className="mono" style={{ padding: '0.85rem 1rem', color: 'var(--neon-cyan)', fontWeight: 600 }}>
+                  <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td className="mono" style={{ padding: '0.85rem 1rem', color: '#2563eb', fontWeight: 600 }}>
                       #{entry.id}
                     </td>
-                    <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
+                    <td style={{ padding: '0.85rem 1rem', color: '#475569', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
                       {new Date(entry.createdAt).toLocaleTimeString()}
                     </td>
                     <td style={{ padding: '0.85rem 1rem' }}>
                       <span className={`badge ${entry.direction === 'CREDIT' ? 'badge-emerald' : 'badge-crimson'}`}>
-                        {entry.direction === 'CREDIT' ? '↑ CREDIT' : '↓ DEBIT'}
+                        {entry.direction === 'CREDIT' ? '+ Deposit / Credit' : '- Withdrawal / Debit'}
                       </span>
                     </td>
-                    <td className="tabular-nums" style={{ padding: '0.85rem 1rem', fontWeight: 700, fontSize: '0.95rem', color: entry.amount > 0 ? 'var(--neon-emerald)' : 'var(--neon-crimson)' }}>
+                    <td className="tabular-nums" style={{ padding: '0.85rem 1rem', fontWeight: 700, fontSize: '0.95rem', color: entry.amount > 0 ? '#059669' : '#e11d48' }}>
                       {entry.amount > 0 ? `+${formatINR(entry.amount)}` : formatINR(entry.amount)}
                     </td>
-                    <td className="tabular-nums" style={{ padding: '0.85rem 1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <td className="tabular-nums" style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#0f172a' }}>
                       {formatINR(entry.balanceAfter)}
                     </td>
-                    <td className="mono" style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                    <td className="mono" style={{ padding: '0.85rem 1rem', color: '#64748b', fontSize: '0.78rem' }}>
                       {entry.transferId ? `${entry.transferId.slice(0, 8)}...${entry.transferId.slice(-4)}` : '-'}
                     </td>
                   </tr>
@@ -438,60 +440,57 @@ export default function HolderDashboard() {
       {/* Action Dialog Modal */}
       {actionType && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="hud-card modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: '2.2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Cpu size={20} style={{ color: 'var(--neon-cyan)' }} />
-                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                  {actionType === 'CREATE_ACCOUNT' && 'Open New Account'}
-                  {actionType === 'DEPOSIT' && `Deposit Funds: ${selectedAccount?.name}`}
-                  {actionType === 'WITHDRAW' && `Withdraw Funds: ${selectedAccount?.name}`}
-                  {actionType === 'TRANSFER' && `Transfer Funds: ${selectedAccount?.name}`}
-                </h2>
-              </div>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>
+                {actionType === 'CREATE_ACCOUNT' && 'Open New Account'}
+                {actionType === 'DEPOSIT' && `Deposit Money to ${selectedAccount?.name}`}
+                {actionType === 'WITHDRAW' && `Withdraw Money from ${selectedAccount?.name}`}
+                {actionType === 'TRANSFER' && `Send Money from ${selectedAccount?.name}`}
+              </h2>
             </div>
 
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', marginBottom: '1.6rem' }}>
-              All money movements execute atomically with bilateral double-entry conservation and idempotency protection.
+            <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '1.5rem' }}>
+              Transactions execute instantly with dual-entry verification and duplicate-charge protection.
             </p>
 
             {/* Error Message */}
             {actionError && (
-              <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '10px', padding: '0.9rem 1.1rem', marginBottom: '1.4rem', color: '#fca5a5', fontSize: '0.88rem', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+              <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.4rem', color: '#be123c', fontSize: '0.88rem', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                 <AlertTriangle size={18} style={{ flexShrink: 0 }} />
                 <span>{actionError}</span>
               </div>
             )}
 
-            {/* Success Confirmation Screen (Shown only after server confirms) */}
+            {/* Success Confirmation Screen */}
             {actionSuccess ? (
               <div>
-                <div style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 30, 20, 0.4) 100%)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '12px', padding: '1.6rem', marginBottom: '1.5rem', textAlign: 'center', boxShadow: '0 0 25px rgba(16, 185, 129, 0.15)' }}>
-                  <CheckCircle2 size={42} style={{ color: 'var(--neon-emerald)', margin: '0 auto 0.8rem' }} />
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#34d399', marginBottom: '0.3rem' }}>
-                    Transaction Confirmed by Server
+                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '1.6rem', marginBottom: '1.4rem', textAlign: 'center' }}>
+                  <CheckCircle2 size={42} style={{ color: '#059669', margin: '0 auto 0.6rem' }} />
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#065f46', marginBottom: '0.2rem' }}>
+                    Transaction Successful!
                   </h3>
-                  <div className="tabular-nums glow-text-emerald" style={{ fontSize: '2rem', fontWeight: 800, margin: '0.6rem 0' }}>
+                  <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: '#047857', margin: '0.5rem 0' }}>
                     {formatINR(actionSuccess.amountMinor)}
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(0, 0, 0, 0.3)', padding: '0.3rem 0.7rem', borderRadius: '6px' }}>
-                    Transfer UUID: <code className="mono">{actionSuccess.transferId}</code>
+                  <div style={{ fontSize: '0.8rem', color: '#475569', background: '#ffffff', padding: '0.4rem 0.8rem', borderRadius: '6px', display: 'inline-block', border: '1px solid #e2e8f0' }}>
+                    Reference ID: <code className="mono">{actionSuccess.transferId}</code>
                   </div>
                 </div>
 
                 {/* Idempotent Replay Indicator */}
                 {actionSuccess.isReplayed && (
-                  <div className="badge-replay" style={{ padding: '1rem', borderRadius: '10px', marginBottom: '1.4rem', display: 'flex', gap: '0.8rem', alignItems: 'center', fontSize: '0.86rem' }}>
-                    <RefreshCw size={20} style={{ flexShrink: 0 }} />
+                  <div className="badge-replay" style={{ padding: '0.9rem', borderRadius: '10px', marginBottom: '1.4rem', display: 'flex', gap: '0.7rem', alignItems: 'center', fontSize: '0.86rem' }}>
+                    <RefreshCw size={18} style={{ flexShrink: 0 }} />
                     <div>
-                      <strong>Replayed, no double charge:</strong> The server returned the stored response for this idempotency key without re-debiting.
+                      <strong>Protected from double-charge:</strong> The server recognized this request and returned the saved confirmation without charging again.
                     </div>
                   </div>
                 )}
 
-                <div style={{ background: 'rgba(10, 16, 30, 0.8)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '0.9rem', marginBottom: '1.6rem', fontSize: '0.78rem' }}>
-                  <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Idempotency-Key Header Bound:</div>
-                  <code className="mono" style={{ color: 'var(--neon-cyan)', wordBreak: 'break-all' }}>{actionSuccess.keyUsed}</code>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem', marginBottom: '1.5rem', fontSize: '0.78rem' }}>
+                  <div style={{ color: '#64748b', marginBottom: '0.2rem' }}>Idempotency Protection Key:</div>
+                  <code className="mono" style={{ color: '#2563eb', wordBreak: 'break-all' }}>{actionSuccess.keyUsed}</code>
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.8rem' }}>
@@ -500,7 +499,7 @@ export default function HolderDashboard() {
                     disabled={actionLoading}
                     className="btn btn-secondary"
                     style={{ flex: 1 }}
-                    title="Resends request using the exact same Idempotency-Key"
+                    title="Resends request with the exact same Idempotency Key"
                   >
                     <RefreshCw size={16} /> Retry same request
                   </button>
@@ -512,8 +511,8 @@ export default function HolderDashboard() {
             ) : actionType === 'CREATE_ACCOUNT' ? (
               <form onSubmit={handleCreateAccount}>
                 <div style={{ marginBottom: '1.4rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.4rem', fontWeight: 500 }}>
-                    Account Display Name
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#334155', marginBottom: '0.4rem', fontWeight: 600 }}>
+                    Account Name
                   </label>
                   <input
                     type="text"
@@ -521,14 +520,14 @@ export default function HolderDashboard() {
                     className="form-input"
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value)}
-                    placeholder="e.g. Investment Vault, High-Yield Checking"
+                    placeholder="e.g. Savings Vault, Emergency Fund"
                     autoFocus
                   />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
                   <button type="button" onClick={closeModal} className="btn btn-secondary">Cancel</button>
                   <button type="submit" disabled={actionLoading} className="btn btn-primary">
-                    {actionLoading ? 'Provisioning...' : 'Confirm Account'}
+                    {actionLoading ? 'Creating...' : 'Create Account'}
                   </button>
                 </div>
               </form>
@@ -536,8 +535,8 @@ export default function HolderDashboard() {
               <div>
                 {actionType === 'TRANSFER' && (
                   <div style={{ marginBottom: '1.2rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.4rem', fontWeight: 500 }}>
-                      Destination Account UUID
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#334155', marginBottom: '0.4rem', fontWeight: 600 }}>
+                      Destination Account ID
                     </label>
                     <input
                       type="text"
@@ -551,8 +550,8 @@ export default function HolderDashboard() {
                 )}
 
                 <div style={{ marginBottom: '1.4rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.4rem', fontWeight: 500 }}>
-                    Amount (in Rupees)
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#334155', marginBottom: '0.4rem', fontWeight: 600 }}>
+                    Amount (in ₹ Rupees)
                   </label>
                   <input
                     type="number"
@@ -565,16 +564,16 @@ export default function HolderDashboard() {
                     placeholder="0.00"
                     autoFocus
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.45rem' }}>
                     <span className="hud-tag emerald">
-                      CONVERTED PAISE: {parseINRToMinorUnits(amountRupees).toString()}
+                      Exact paise: {parseINRToMinorUnits(amountRupees).toString()}
                     </span>
                   </div>
                 </div>
 
-                <div style={{ background: 'rgba(10, 16, 30, 0.8)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '0.9rem', marginBottom: '1.6rem', fontSize: '0.78rem' }}>
-                  <div style={{ color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Assigned Intent Idempotency-Key:</div>
-                  <code className="mono" style={{ color: 'var(--neon-cyan)', wordBreak: 'break-all' }}>{currentIdempotencyKey}</code>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem', marginBottom: '1.5rem', fontSize: '0.78rem' }}>
+                  <div style={{ color: '#64748b', marginBottom: '0.2rem' }}>Duplicate Protection Key:</div>
+                  <code className="mono" style={{ color: '#2563eb', wordBreak: 'break-all' }}>{currentIdempotencyKey}</code>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
@@ -585,7 +584,7 @@ export default function HolderDashboard() {
                     disabled={actionLoading}
                     className="btn btn-primary"
                   >
-                    {actionLoading ? 'Processing Mutex...' : `Confirm ${actionType}`}
+                    {actionLoading ? 'Processing...' : `Confirm ${actionType === 'TRANSFER' ? 'Transfer' : actionType === 'DEPOSIT' ? 'Deposit' : 'Withdrawal'}`}
                   </button>
                 </div>
               </div>

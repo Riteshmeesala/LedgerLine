@@ -2,6 +2,8 @@
 .env
 .env.local
 *.env
+password*.txt
+*secrets*.txt
 
 # Build outputs
 target/

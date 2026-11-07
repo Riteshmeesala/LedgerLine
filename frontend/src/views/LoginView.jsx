@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, LogIn, Lock, KeyRound, ShieldAlert, Cpu, CheckCircle } from 'lucide-react';
+import { ShieldCheck, LogIn, Lock, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 export default function LoginView() {
   const [email, setEmail] = useState('');
@@ -39,56 +39,57 @@ export default function LoginView() {
       }}
     >
       <div
-        className="hud-card"
+        className="glass-panel"
         style={{
           maxWidth: '440px',
           width: '100%',
           padding: '2.5rem 2.2rem',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(0, 245, 255, 0.1)'
+          boxShadow: 'var(--shadow-xl)',
+          background: '#ffffff',
+          borderRadius: '20px',
+          border: '1px solid #e2e8f0'
         }}
       >
-        {/* Terminal Header */}
+        {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div
             style={{
               display: 'inline-flex',
-              padding: '1rem',
+              padding: '0.9rem',
               borderRadius: '16px',
-              background: 'linear-gradient(135deg, rgba(0, 245, 255, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)',
-              marginBottom: '1.2rem',
-              border: '1px solid rgba(0, 245, 255, 0.35)',
-              boxShadow: '0 0 25px rgba(0, 245, 255, 0.25)'
+              background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+              marginBottom: '1rem',
+              color: '#2563eb',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.12)'
             }}
           >
-            <ShieldCheck size={36} style={{ color: 'var(--neon-cyan)' }} />
+            <ShieldCheck size={36} />
           </div>
           <h1
             style={{
               fontSize: '1.75rem',
               fontWeight: 800,
               letterSpacing: '-0.02em',
-              marginBottom: '0.4rem',
-              background: 'linear-gradient(90deg, #f8fafc 0%, #cbd5e1 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
+              marginBottom: '0.35rem',
+              color: '#0f172a'
             }}
           >
-            LedgerLine Access
+            Welcome to LedgerLine
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-            Zero-Loss Double-Entry Financial Engine
+          <p style={{ color: '#64748b', fontSize: '0.92rem' }}>
+            High-integrity double-entry financial platform
           </p>
 
-          {/* Security Features Pills */}
+          {/* Trust Badges */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.68rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: 'rgba(0, 245, 255, 0.08)', border: '1px solid rgba(0, 245, 255, 0.25)', color: 'var(--neon-cyan)', fontWeight: 600 }}>
-              256-BIT HMAC
+            <span style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem', borderRadius: '6px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', fontWeight: 600 }}>
+              Zero-Loss Accounting
             </span>
-            <span style={{ fontSize: '0.68rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.25)', color: '#c084fc', fontWeight: 600 }}>
-              PESSIMISTIC MUTEX
+            <span style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem', borderRadius: '6px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontWeight: 600 }}>
+              Duplicate-Proof Replay
             </span>
-            <span style={{ fontSize: '0.68rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', color: '#34d399', fontWeight: 600 }}>
-              IMMUTABLE TRIGGERS
+            <span style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem', borderRadius: '6px', background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#6d28d9', fontWeight: 600 }}>
+              Audit-Chained Trail
             </span>
           </div>
         </div>
@@ -96,38 +97,35 @@ export default function LoginView() {
         {error && (
           <div
             style={{
-              background: 'rgba(244, 63, 94, 0.15)',
-              border: '1px solid rgba(244, 63, 94, 0.4)',
+              background: '#fff1f2',
+              border: '1px solid #fecdd3',
               borderRadius: '10px',
-              padding: '0.9rem 1rem',
+              padding: '0.85rem 1rem',
               marginBottom: '1.4rem',
               display: 'flex',
               gap: '0.75rem',
               alignItems: 'center',
-              color: '#fda4af',
-              fontSize: '0.88rem',
-              boxShadow: '0 0 15px rgba(244, 63, 94, 0.15)'
+              color: '#be123c',
+              fontSize: '0.88rem'
             }}
           >
-            <ShieldAlert size={20} style={{ flexShrink: 0, color: 'var(--neon-crimson)' }} />
+            <ShieldAlert size={20} style={{ flexShrink: 0 }} />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           <div>
             <label
               style={{
                 display: 'block',
-                fontSize: '0.82rem',
-                color: 'var(--text-secondary)',
-                marginBottom: '0.45rem',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em'
+                fontSize: '0.84rem',
+                color: '#334155',
+                marginBottom: '0.4rem',
+                fontWeight: 600
               }}
             >
-              Account Email
+              Email Address
             </label>
             <input
               type="email"
@@ -135,8 +133,9 @@ export default function LoginView() {
               className="form-input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="holder1@ledgerline.local"
+              placeholder="e.g. yourname@example.com"
               autoComplete="username"
+              autoFocus
             />
           </div>
 
@@ -144,15 +143,13 @@ export default function LoginView() {
             <label
               style={{
                 display: 'block',
-                fontSize: '0.82rem',
-                color: 'var(--text-secondary)',
-                marginBottom: '0.45rem',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em'
+                fontSize: '0.84rem',
+                color: '#334155',
+                marginBottom: '0.4rem',
+                fontWeight: 600
               }}
             >
-              Master Password
+              Password
             </label>
             <input
               type="password"
@@ -167,41 +164,40 @@ export default function LoginView() {
 
           <div
             style={{
-              background: 'rgba(245, 158, 11, 0.08)',
-              border: '1px solid rgba(245, 158, 11, 0.22)',
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
               borderRadius: '8px',
               padding: '0.65rem 0.85rem',
               fontSize: '0.78rem',
-              color: '#fcd34d',
+              color: '#b45309',
               display: 'flex',
               gap: '0.5rem',
               alignItems: 'center'
             }}
           >
-            <Lock size={14} style={{ flexShrink: 0 }} />
-            <span>Anti-Enumeration: 5 consecutive failed attempts lock account for 15 minutes.</span>
+            <Lock size={15} style={{ flexShrink: 0 }} />
+            <span>Account Security: 5 failed attempts locks login for 15 minutes.</span>
           </div>
 
           <button
             type="submit"
             disabled={loading}
             className="btn btn-primary"
-            style={{ width: '100%', padding: '0.85rem', marginTop: '0.4rem', fontSize: '0.95rem' }}
+            style={{ width: '100%', padding: '0.85rem', marginTop: '0.3rem', fontSize: '0.98rem' }}
           >
             <LogIn size={18} />
-            {loading ? 'Authenticating...' : 'Authorize Session'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        <div style={{ marginTop: '1.8rem', textAlign: 'center', fontSize: '0.88rem', color: 'var(--text-muted)' }}>
-          Don't have a ledger account?{' '}
+        <div style={{ marginTop: '1.8rem', textAlign: 'center', fontSize: '0.9rem', color: '#64748b' }}>
+          Don't have an account?{' '}
           <Link
             to="/register"
             style={{
-              color: 'var(--neon-cyan)',
+              color: '#2563eb',
               textDecoration: 'none',
-              fontWeight: 700,
-              textShadow: '0 0 10px rgba(0, 245, 255, 0.4)'
+              fontWeight: 700
             }}
           >
             Create Customer Account
