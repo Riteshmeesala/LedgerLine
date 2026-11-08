@@ -54,7 +54,8 @@ export class ApiError extends Error {
 }
 
 export async function apiClient(endpoint, options = {}) {
-  const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+  const DEFAULT_BACKEND_URL = 'https://ledgerline-t2vv.onrender.com';
+  const baseUrl = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? DEFAULT_BACKEND_URL : '')).replace(/\/$/, '');
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   const headers = {
