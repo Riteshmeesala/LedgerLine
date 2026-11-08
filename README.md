@@ -204,6 +204,14 @@ Derived strictly from real test executions during development:
   - **Frontend (Vercel)**: [`https://ledger-line-orpin.vercel.app`](https://ledger-line-orpin.vercel.app)
   - **Backend (Render Web Service)**: [`https://ledgerline-t2vv.onrender.com`](https://ledgerline-t2vv.onrender.com)
   - **Database (Render Managed PostgreSQL 16)**: `dpg-dbnmsbp5efls73bpq3u0-a:5432/ledgerline_vftx`
+
+### Live Stakeholder Demo Accounts
+
+| Role | Email | Password | Primary Portal | Key Features |
+| :--- | :--- | :--- | :--- | :--- |
+| **System Operator (Admin)** | `admin@ledgerline.local` | `vy92gTVe8SwXZkKHXhd8` | `/admin` | Account Freeze/Unfreeze, User Provisioning (BCrypt-12), Portfolio Oversight |
+| **Compliance Inspector (Auditor)** | `auditor@ledgerline.local` | `rrEqyGnA3bkCakTbc%x7` | `/auditor` | 1-Click SHA-256 Tape Verification, Zero-Sum Conservation Audit ($\Sigma=0$) |
+| **Account Holder (Customer)** | `holder1@ledgerline.local` | `hG#5b!hL6!md9N-8e9YP` | `/dashboard` | Deposits, Withdrawals, P2P Transfers (Idempotent UUID), CSV Statement Export |
 - **Verification Commands & Evidence**:
   - Backend Liveness (`200 OK`):
     ```bash
