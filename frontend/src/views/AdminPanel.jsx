@@ -4,7 +4,7 @@ import { formatINR } from '../utils/money';
 import { 
   Users, UserPlus, Shield, Snowflake, Sun, AlertTriangle, 
   CheckCircle2, Key, Lock, RefreshCw, Search, Copy, Check,
-  Activity, ShieldCheck, Wallet, Database
+  Activity, ShieldCheck, Wallet, Database, X
 } from 'lucide-react';
 
 /**
@@ -20,6 +20,17 @@ export default function AdminPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [copiedId, setCopiedId] = useState(null);
+
+  // Feature 4: Freeze/Unfreeze Reason Modal State
+  const [freezeModal, setFreezeModal] = useState({
+    open: false,
+    accountId: null,
+    currentStatus: null,
+    accountName: '',
+    reason: '',
+    loading: false,
+    error: null
+  });
 
   // New User Form State
   const [email, setEmail] = useState('');
@@ -70,19 +81,46 @@ export default function AdminPanel() {
     }
   };
 
-  const handleToggleFreeze = async (accountId, currentStatus) => {
-    setError(null);
-    setSuccessMsg(null);
-    const endpoint = currentStatus === 'ACTIVE'
-      ? `/api/admin/accounts/${accountId}/freeze`
-      : `/api/admin/accounts/${accountId}/unfreeze`;
+  const handleOpenFreezeModal = (acc) => {
+    setFreezeModal({
+      open: true,
+      accountId: acc.id,
+      currentStatus: acc.status,
+      accountName: acc.name,
+      reason: '',
+      loading: false,
+      error: null
+    });
+  };
+
+  const handleConfirmFreeze = async (e) => {
+    if (e) e.preventDefault();
+    const trimmedReason = freezeModal.reason.trim();
+    if (trimmedReason.length < 3 || trimmedReason.length > 200) {
+      setFreezeModal(prev => ({ ...prev, error: 'Reason must be between 3 and 200 characters.' }));
+      return;
+    }
+
+    setFreezeModal(prev => ({ ...prev, loading: true, error: null }));
+    const endpoint = freezeModal.currentStatus === 'ACTIVE'
+      ? `/api/admin/accounts/${freezeModal.accountId}/freeze`
+      : `/api/admin/accounts/${freezeModal.accountId}/unfreeze`;
 
     try {
-      await apiClient(endpoint, { method: 'POST' });
-      setSuccessMsg(`Account status updated to ${currentStatus === 'ACTIVE' ? 'FROZEN' : 'ACTIVE'}.`);
+      await apiClient(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ reason: trimmedReason })
+      });
+      const newStatus = freezeModal.currentStatus === 'ACTIVE' ? 'FROZEN' : 'ACTIVE';
+      setSuccessMsg(`Account status updated to ${newStatus}. Reason recorded in audit log.`);
+      setFreezeModal({ open: false, accountId: null, currentStatus: null, accountName: '', reason: '', loading: false, error: null });
       fetchAccounts();
     } catch (err) {
-      setError(err.detail || err.message || 'Failed to update account status.');
+      setFreezeModal(prev => ({
+        ...prev,
+        loading: false,
+        error: err.detail || err.message || 'Failed to update account status.'
+      }));
     }
   };
 
@@ -358,7 +396,7 @@ export default function AdminPanel() {
                     </span>
                     {acc.type === 'CUSTOMER' && (
                       <button
-                        onClick={() => handleToggleFreeze(acc.id, acc.status)}
+                        onClick={() => handleOpenFreezeModal(acc)}
                         className={`btn ${acc.status === 'ACTIVE' ? 'btn-danger' : 'btn-secondary'}`}
                         style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
                       >
@@ -376,6 +414,108 @@ export default function AdminPanel() {
           )}
         </div>
       </div>
+
+      {/* Feature 4: Reason Mandated Freeze/Unfreeze Modal */}
+      {freezeModal.open && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '1.75rem',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                {freezeModal.currentStatus === 'ACTIVE' ? (
+                  <Snowflake size={20} style={{ color: '#e11d48' }} />
+                ) : (
+                  <Sun size={20} style={{ color: '#059669' }} />
+                )}
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                  {freezeModal.currentStatus === 'ACTIVE' ? 'Freeze Account' : 'Unfreeze Account'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFreezeModal({ open: false, accountId: null, currentStatus: null, accountName: '', reason: '', loading: false, error: null })}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.86rem', color: '#475569', marginBottom: '1rem', lineHeight: 1.5 }}>
+              Administrative policy requires a justification reason (3 to 200 characters) which will be cryptographically chained to the audit trail.
+            </p>
+
+            {freezeModal.error && (
+              <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '8px', padding: '0.65rem 0.85rem', color: '#be123c', fontSize: '0.82rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                <span>{freezeModal.error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmFreeze}>
+              <div style={{ marginBottom: '1.2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155' }}>
+                    Reason / Justification
+                  </label>
+                  <span style={{ fontSize: '0.74rem', color: freezeModal.reason.trim().length < 3 || freezeModal.reason.length > 200 ? '#ef4444' : '#64748b' }}>
+                    {freezeModal.reason.length}/200 chars (min 3)
+                  </span>
+                </div>
+                <textarea
+                  required
+                  rows={3}
+                  value={freezeModal.reason}
+                  onChange={(e) => setFreezeModal(prev => ({ ...prev, reason: e.target.value }))}
+                  placeholder={freezeModal.currentStatus === 'ACTIVE' 
+                    ? "e.g., Suspected fraudulent activity reported by risk engine..." 
+                    : "e.g., Compliance KYC review completed and cleared..."}
+                  className="input-field"
+                  style={{ width: '100%', resize: 'vertical', fontSize: '0.85rem', padding: '0.65rem 0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setFreezeModal({ open: false, accountId: null, currentStatus: null, accountName: '', reason: '', loading: false, error: null })}
+                  className="btn btn-secondary"
+                  style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={freezeModal.loading || freezeModal.reason.trim().length < 3 || freezeModal.reason.length > 200}
+                  className={`btn ${freezeModal.currentStatus === 'ACTIVE' ? 'btn-danger' : 'btn-primary'}`}
+                  style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}
+                >
+                  {freezeModal.loading ? 'Updating...' : `Confirm ${freezeModal.currentStatus === 'ACTIVE' ? 'Freeze' : 'Unfreeze'}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

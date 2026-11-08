@@ -319,6 +319,79 @@ public class AuthAndAuthorizationSecurityTest {
                 .andExpect(jsonPath("$.detail").value("Invalid credentials"));
     }
 
+    @Test
+    @DisplayName("Feature 4: ADMIN freeze account without reason returns 400 Bad Request")
+    void freezeAccountWithoutReasonReturns400BadRequest() throws Exception {
+        // Missing body
+        mockMvc.perform(post("/api/admin/accounts/{id}/freeze", accountIdA)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+
+        // Empty body or blank reason
+        mockMvc.perform(post("/api/admin/accounts/{id}/freeze", accountIdA)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"   \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Feature 4: ADMIN freeze account with reason under 3 characters returns 400 Bad Request")
+    void freezeAccountWithReasonUnder3CharsReturns400BadRequest() throws Exception {
+        mockMvc.perform(post("/api/admin/accounts/{id}/freeze", accountIdA)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"no\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Feature 4: ADMIN freeze account with reason over 200 characters returns 400 Bad Request")
+    void freezeAccountWithReasonOver200CharsReturns400BadRequest() throws Exception {
+        String longReason = "A".repeat(201);
+        mockMvc.perform(post("/api/admin/accounts/{id}/freeze", accountIdA)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"" + longReason + "\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Feature 4: ADMIN freeze and unfreeze with valid reason records audit_log entry with reason")
+    void freezeAndUnfreezeWithValidReasonRecordsAuditLogRowWithReason() throws Exception {
+        String freezeReason = "Suspected fraudulent activity reported by risk engine";
+        mockMvc.perform(post("/api/admin/accounts/{id}/freeze", accountIdA)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"" + freezeReason + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FROZEN"));
+
+        // Verify audit log has FREEZE_ACCOUNT with exact reason in payload
+        List<Map<String, Object>> freezeLogs = jdbcTemplate.queryForList(
+                "SELECT payload FROM audit_log WHERE action = 'FREEZE_ACCOUNT' AND entity_id = ? ORDER BY seq DESC LIMIT 1",
+                accountIdA.toString()
+        );
+        assertThat(freezeLogs).isNotEmpty();
+        assertThat(freezeLogs.get(0).get("payload").toString()).contains(freezeReason);
+
+        String unfreezeReason = "Risk review completed and cleared by compliance officer";
+        mockMvc.perform(post("/api/admin/accounts/{id}/unfreeze", accountIdA)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"" + unfreezeReason + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        // Verify audit log has UNFREEZE_ACCOUNT with exact reason in payload
+        List<Map<String, Object>> unfreezeLogs = jdbcTemplate.queryForList(
+                "SELECT payload FROM audit_log WHERE action = 'UNFREEZE_ACCOUNT' AND entity_id = ? ORDER BY seq DESC LIMIT 1",
+                accountIdA.toString()
+        );
+        assertThat(unfreezeLogs).isNotEmpty();
+        assertThat(unfreezeLogs.get(0).get("payload").toString()).contains(unfreezeReason);
+    }
+
     private void registerUser(String email, String password) throws Exception {
         RegisterRequest request = new RegisterRequest(email, password);
         mockMvc.perform(post("/api/auth/register")

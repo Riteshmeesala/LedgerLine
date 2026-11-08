@@ -152,7 +152,9 @@ public class AccountMovementsAndConcurrencyTest {
     void frozenAccountRejectedFromTransacting() throws Exception {
         // Freeze account via Admin endpoint
         mockMvc.perform(post("/api/admin/accounts/" + accountId + "/freeze")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"Suspicious activity under review\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FROZEN"));
 

@@ -142,7 +142,9 @@ public class PenetrationTest {
 
         // ADMIN succeeds
         mockMvc.perform(post("/api/admin/accounts/{id}/freeze", holderAccountId)
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"Administrative freeze for pen test\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FROZEN"));
 
@@ -156,7 +158,9 @@ public class PenetrationTest {
 
         // ADMIN can unfreeze
         mockMvc.perform(post("/api/admin/accounts/{id}/unfreeze", holderAccountId)
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"Administrative unfreeze for pen test\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
     }

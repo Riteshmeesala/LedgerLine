@@ -591,36 +591,66 @@ curl -X POST http://localhost:8080/api/admin/users \
 ---
 
 ### 6.2 Freeze Account (`POST /api/admin/accounts/{id}/freeze`)
-Prevents all subsequent debits or credits on the specified account.
+Prevents all subsequent debits or credits on the specified account. Requires an auditable justification reason (3 to 200 characters), which is cryptographically logged in the audit trail.
 
 ```bash
 curl -X POST http://localhost:8080/api/admin/accounts/c1000000-0000-0000-0000-000000000001/freeze \
-  -H "Authorization: Bearer <ADMIN_TOKEN>"
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Suspected fraudulent activity reported by risk engine"
+  }'
 ```
 
 **Response (HTTP 200 OK)**:
 ```json
 {
   "id": "c1000000-0000-0000-0000-000000000001",
-  "status": "FROZEN"
+  "status": "FROZEN",
+  "reason": "Suspected fraudulent activity reported by risk engine"
+}
+```
+
+**Error Response (HTTP 400 Bad Request - Reason missing or out of bounds)**:
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Reason must be between 3 and 200 characters"
 }
 ```
 
 ---
 
 ### 6.3 Unfreeze Account (`POST /api/admin/accounts/{id}/unfreeze`)
-Restores an account to active status.
+Restores an account to active status. Requires an auditable justification reason (3 to 200 characters), which is cryptographically logged in the audit trail.
 
 ```bash
 curl -X POST http://localhost:8080/api/admin/accounts/c1000000-0000-0000-0000-000000000001/unfreeze \
-  -H "Authorization: Bearer <ADMIN_TOKEN>"
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Compliance review completed and risk cleared"
+  }'
 ```
 
 **Response (HTTP 200 OK)**:
 ```json
 {
   "id": "c1000000-0000-0000-0000-000000000001",
-  "status": "ACTIVE"
+  "status": "ACTIVE",
+  "reason": "Compliance review completed and risk cleared"
+}
+```
+
+**Error Response (HTTP 400 Bad Request - Reason missing or out of bounds)**:
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Reason must be between 3 and 200 characters"
 }
 ```
 
