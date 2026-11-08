@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { formatINR } from '../utils/money';
 import { 
   FileText, CheckCircle2, AlertOctagon, ChevronLeft, ChevronRight, 
   Calendar, Filter, ArrowDownLeft, ArrowUpRight, Download, RefreshCw,
-  Wallet, ShieldCheck, Sparkles
+  Search, X, RotateCcw
 } from 'lucide-react';
 
 export default function StatementView() {
@@ -14,31 +14,60 @@ export default function StatementView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Filters
+  // Filter States
   const [page, setPage] = useState(0);
   const [size] = useState(10);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Date Boundary Parsers: Start of Day (00:00:00.000) & End of Day (23:59:59.999)
+  const parseStartOfDayIso = (dateStr) => {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day, 0, 0, 0, 0);
+    return d.toISOString();
+  };
+
+  const parseEndOfDayIso = (dateStr) => {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day, 23, 59, 59, 999);
+    return d.toISOString();
+  };
+
+  // Fetch Accounts list
+  const fetchAccounts = async () => {
+    try {
+      const data = await apiClient('/api/accounts');
+      setAccounts(data);
+      if (data.length > 0 && !selectedAccountId) {
+        setSelectedAccountId(data[0].id);
+        fetchStatementData(data[0].id, fromDate, toDate, page);
+      }
+      return data;
+    } catch (err) {
+      setError(err.detail || err.message);
+      return [];
+    }
+  };
 
   useEffect(() => {
-    apiClient('/api/accounts')
-      .then((data) => {
-        setAccounts(data);
-        if (data.length > 0) {
-          setSelectedAccountId(data[0].id);
-        }
-      })
-      .catch((err) => setError(err.detail || err.message));
+    fetchAccounts();
   }, []);
 
-  const fetchStatement = async () => {
-    if (!selectedAccountId) return;
+  // Fetch statement data with boundary-aligned dates
+  const fetchStatementData = async (accId, from, to, pageNum) => {
+    if (!accId) return;
     setLoading(true);
     setError(null);
     try {
-      let query = `/api/accounts/${selectedAccountId}/statement?page=${page}&size=${size}`;
-      if (fromDate) query += `&from=${new Date(fromDate).toISOString()}`;
-      if (toDate) query += `&to=${new Date(toDate).toISOString()}`;
+      let query = `/api/accounts/${accId}/statement?page=${pageNum}&size=${size}`;
+      const startIso = parseStartOfDayIso(from);
+      const endIso = parseEndOfDayIso(to);
+
+      if (startIso) query += `&from=${startIso}`;
+      if (endIso) query += `&to=${endIso}`;
 
       const res = await apiClient(query);
       setStatement(res);
@@ -49,16 +78,121 @@ export default function StatementView() {
     }
   };
 
+  // Trigger statement fetch on account or page change
   useEffect(() => {
     if (selectedAccountId) {
-      fetchStatement();
+      fetchStatementData(selectedAccountId, fromDate, toDate, page);
     }
   }, [selectedAccountId, page]);
 
+  // Bug 1 Fix: Filter entries with exact numeric match vs description/reference match
+  const filteredEntries = useMemo(() => {
+    if (!statement || !statement.entries) return [];
+    const q = searchQuery.trim();
+    if (!q) return statement.entries;
+
+    const numericQuery = Number(q);
+    const isNumeric = !isNaN(numericQuery) && q !== '';
+
+    return statement.entries.filter((entry) => {
+      if (isNumeric) {
+        // Exact transaction value match on minor units (paise) or major units (rupees)
+        const absAmount = Math.abs(entry.amount);
+        return absAmount === numericQuery || (absAmount / 100) === numericQuery;
+      }
+      // Non-numeric: string matching ONLY on transferId, description, or entry ID
+      const qLower = q.toLowerCase();
+      return Boolean(
+        (entry.transferId && entry.transferId.toLowerCase().includes(qLower)) ||
+        (entry.description && entry.description.toLowerCase().includes(qLower)) ||
+        (entry.id && entry.id.toString() === q)
+      );
+    });
+  }, [statement, searchQuery]);
+
+  // Bug 2 Fix: Dynamic Opening & Closing Balance computation
+  const activeAccount = accounts.find((a) => a.id === selectedAccountId);
+  const fallbackBalance = activeAccount ? activeAccount.balance : 0;
+
+  const dynamicBalances = useMemo(() => {
+    const entries = filteredEntries;
+    if (entries.length > 0) {
+      // Earliest entry opening balance
+      const opening = (statement && statement.openingBalance !== undefined && statement.openingBalance !== 0)
+        ? statement.openingBalance
+        : (entries[0].balanceAfter - entries[0].amount);
+
+      // Latest entry closing balance
+      const closing = (statement && statement.closingBalance !== undefined && statement.closingBalance !== 0)
+        ? statement.closingBalance
+        : entries[entries.length - 1].balanceAfter;
+
+      const periodNet = entries.reduce((acc, e) => acc + e.amount, 0);
+      return {
+        opening,
+        closing,
+        periodNet,
+        reconciled: (opening + periodNet) === closing
+      };
+    }
+
+    // When 0 records in filtered range, DO NOT reset closing balance to ₹0.00!
+    // Maintain opening/closing balance from account balance or statement bounds
+    const persistentBalance = (statement && statement.closingBalance) || (statement && statement.openingBalance) || fallbackBalance;
+    return {
+      opening: persistentBalance,
+      closing: persistentBalance,
+      periodNet: 0,
+      reconciled: true
+    };
+  }, [statement, filteredEntries, fallbackBalance]);
+
+  // Bug 3 Fix: "Clear Filters" restores all params & triggers fresh data re-render
+  const handleClearFilters = () => {
+    const defaultAccountId = accounts.length > 0 ? accounts[0].id : '';
+    setSelectedAccountId(defaultAccountId);
+    setFromDate('');
+    setToDate('');
+    setSearchQuery('');
+    setPage(0);
+    if (defaultAccountId) {
+      fetchStatementData(defaultAccountId, '', '', 0);
+    }
+  };
+
+  // Bug 4 Fix: Refresh button triggers manual API re-fetch
+  const handleManualRefresh = async () => {
+    await fetchAccounts();
+    if (selectedAccountId) {
+      await fetchStatementData(selectedAccountId, fromDate, toDate, page);
+    }
+  };
+
+  // Bug 4 Fix: Preset date buttons properly compute and set start/end date states
+  const handleDatePreset = (days) => {
+    const today = new Date();
+    const past = new Date();
+    past.setDate(today.getDate() - days);
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const startStr = `${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}`;
+    const endStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+    setFromDate(startStr);
+    setToDate(endStr);
+    setPage(0);
+    fetchStatementData(selectedAccountId, startStr, endStr, 0);
+  };
+
+  const handleApplyDateFilter = () => {
+    setPage(0);
+    fetchStatementData(selectedAccountId, fromDate, toDate, 0);
+  };
+
   const handleExportCSV = () => {
-    if (!statement || !statement.entries || statement.entries.length === 0) return;
+    if (filteredEntries.length === 0) return;
     const headers = ['Entry ID', 'Timestamp', 'Direction', 'Amount (INR)', 'Balance After (INR)', 'Transfer Ref'];
-    const rows = statement.entries.map(e => [
+    const rows = filteredEntries.map((e) => [
       e.id,
       new Date(e.createdAt).toISOString(),
       e.direction,
@@ -66,7 +200,7 @@ export default function StatementView() {
       (e.balanceAfter / 100).toFixed(2),
       e.transferId || 'N/A'
     ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -74,21 +208,6 @@ export default function StatementView() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const handleDatePreset = (days) => {
-    const to = new Date();
-    const from = new Date();
-    from.setDate(to.getDate() - days);
-    setFromDate(from.toISOString().split('T')[0]);
-    setToDate(to.toISOString().split('T')[0]);
-    setPage(0);
-  };
-
-  const handleClearFilters = () => {
-    setFromDate('');
-    setToDate('');
-    setPage(0);
   };
 
   return (
@@ -111,42 +230,85 @@ export default function StatementView() {
           </div>
 
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button onClick={fetchStatement} className="btn btn-secondary">
-              <RefreshCw size={15} /> Refresh
+            <button onClick={handleManualRefresh} disabled={loading} className="btn btn-secondary">
+              <RefreshCw size={15} className={loading ? 'spin' : ''} /> Refresh
             </button>
-            <button onClick={handleExportCSV} disabled={!statement || statement.entries.length === 0} className="btn btn-secondary">
+            <button onClick={handleExportCSV} disabled={filteredEntries.length === 0} className="btn btn-secondary">
               <Download size={15} /> Export CSV
             </button>
           </div>
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {/* Statement Controls & Date Filter Panel */}
       <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '1.8rem', background: '#ffffff' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Filter size={18} style={{ color: '#2563eb' }} />
             <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>Statement Controls & Date Filter</h2>
           </div>
 
-          {/* Quick Date Presets */}
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => handleDatePreset(7)} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.74rem', fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
+          {/* Quick Date Presets & Clear Filters Button */}
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => handleDatePreset(7)}
+              style={{
+                background: '#f1f5f9',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                padding: '0.3rem 0.65rem',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                color: '#475569',
+                cursor: 'pointer'
+              }}
+            >
               Last 7 Days
             </button>
-            <button type="button" onClick={() => handleDatePreset(30)} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.74rem', fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
+            <button
+              type="button"
+              onClick={() => handleDatePreset(30)}
+              style={{
+                background: '#f1f5f9',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                padding: '0.3rem 0.65rem',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                color: '#475569',
+                cursor: 'pointer'
+              }}
+            >
               Last 30 Days
             </button>
-            {(fromDate || toDate) && (
-              <button type="button" onClick={handleClearFilters} style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.74rem', fontWeight: 600, color: '#be123c', cursor: 'pointer' }}>
-                Clear Filters
+            {(fromDate || toDate || searchQuery || (accounts.length > 0 && selectedAccountId !== accounts[0].id)) && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                style={{
+                  background: '#fff1f2',
+                  border: '1px solid #fecdd3',
+                  borderRadius: '6px',
+                  padding: '0.3rem 0.65rem',
+                  fontSize: '0.74rem',
+                  fontWeight: 600,
+                  color: '#be123c',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+              >
+                <RotateCcw size={12} /> Clear Filters
               </button>
             )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
-          <div style={{ minWidth: 'min(100%, 260px)', flex: '1 1 260px' }}>
+        {/* Form Inputs Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1rem', alignItems: 'flex-end' }}>
+          <div>
             <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: 600 }}>
               Select Account
             </label>
@@ -163,9 +325,9 @@ export default function StatementView() {
             </select>
           </div>
 
-          <div style={{ minWidth: 'min(100%, 140px)', flex: '1 1 140px' }}>
+          <div>
             <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: 600 }}>
-              Start Date
+              Start Date (00:00:00)
             </label>
             <input
               type="date"
@@ -175,9 +337,9 @@ export default function StatementView() {
             />
           </div>
 
-          <div style={{ minWidth: 'min(100%, 140px)', flex: '1 1 140px' }}>
+          <div>
             <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: 600 }}>
-              End Date
+              End Date (23:59:59)
             </label>
             <input
               type="date"
@@ -187,9 +349,32 @@ export default function StatementView() {
             />
           </div>
 
-          <button onClick={() => { setPage(0); fetchStatement(); }} className="btn btn-primary" style={{ padding: '0.7rem 1.3rem', flex: '1 1 140px', justifyContent: 'center' }}>
-            <Calendar size={16} /> Filter
-          </button>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: 600 }}>
+              Search (Exact Amount or ID)
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="e.g. 500 or Ref ID..."
+                className="form-input"
+                style={{ paddingLeft: '2.1rem' }}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={handleApplyDateFilter}
+              className="btn btn-primary"
+              style={{ padding: '0.65rem 1.2rem', flex: 1, justifyContent: 'center' }}
+            >
+              <Calendar size={15} /> Apply Filter
+            </button>
+          </div>
         </div>
       </div>
 
@@ -202,18 +387,19 @@ export default function StatementView() {
 
       {loading ? (
         <div style={{ padding: '4rem 2rem', textAlign: 'center', color: '#64748b' }}>
-          Reconciling statement entries from immutable ledger...
+          <RefreshCw size={24} style={{ animation: 'spin 1.5s linear infinite', marginBottom: '0.5rem', color: '#2563eb' }} />
+          <div>Reconciling statement entries from immutable ledger...</div>
         </div>
       ) : statement ? (
         <div>
-          {/* Mathematical Reconciliation Status Banner */}
+          {/* Mathematical Reconciliation Status Banner with Dynamic Balances */}
           <div
             className="glass-panel"
             style={{
               padding: '1.5rem',
               marginBottom: '1.8rem',
-              border: statement.reconciled ? '1px solid #a7f3d0' : '1px solid #fecdd3',
-              background: statement.reconciled ? '#f0fdf4' : '#fff1f2',
+              border: dynamicBalances.reconciled ? '1px solid #a7f3d0' : '1px solid #fecdd3',
+              background: dynamicBalances.reconciled ? '#f0fdf4' : '#fff1f2',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -222,7 +408,7 @@ export default function StatementView() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              {statement.reconciled ? (
+              {dynamicBalances.reconciled ? (
                 <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669' }}>
                   <CheckCircle2 size={24} />
                 </div>
@@ -232,11 +418,11 @@ export default function StatementView() {
                 </div>
               )}
               <div>
-                <div style={{ fontWeight: 800, fontSize: '1.08rem', color: statement.reconciled ? '#065f46' : '#9f1239' }}>
-                  {statement.reconciled ? 'Reconciliation Verified: Books Balance Perfectly' : 'Reconciliation Notice: Variance Detected'}
+                <div style={{ fontWeight: 800, fontSize: '1.08rem', color: dynamicBalances.reconciled ? '#065f46' : '#9f1239' }}>
+                  {dynamicBalances.reconciled ? 'Reconciliation Verified: Books Balance Perfectly' : 'Reconciliation Notice: Variance Detected'}
                 </div>
-                <div className="tabular-nums" style={{ fontSize: '0.85rem', color: statement.reconciled ? '#047857' : '#be123c', marginTop: '0.15rem' }}>
-                  Ending Balance ({formatINR(statement.closingBalance)}) = Opening ({formatINR(statement.openingBalance)}) + Period Net ({formatINR(statement.periodSum)})
+                <div className="tabular-nums" style={{ fontSize: '0.85rem', color: dynamicBalances.reconciled ? '#047857' : '#be123c', marginTop: '0.15rem' }}>
+                  Ending Balance ({formatINR(dynamicBalances.closing)}) = Opening ({formatINR(dynamicBalances.opening)}) + Period Net ({formatINR(dynamicBalances.periodNet)})
                 </div>
               </div>
             </div>
@@ -244,11 +430,11 @@ export default function StatementView() {
             <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
               <div className="stat-tile" style={{ padding: '0.65rem 1.1rem', background: '#ffffff' }}>
                 <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Opening Balance</div>
-                <div className="tabular-nums" style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>{formatINR(statement.openingBalance)}</div>
+                <div className="tabular-nums" style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>{formatINR(dynamicBalances.opening)}</div>
               </div>
               <div className="stat-tile" style={{ padding: '0.65rem 1.1rem', background: '#ffffff', borderColor: '#bfdbfe' }}>
                 <div style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600, textTransform: 'uppercase' }}>Closing Balance</div>
-                <div className="tabular-nums" style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1d4ed8' }}>{formatINR(statement.closingBalance)}</div>
+                <div className="tabular-nums" style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1d4ed8' }}>{formatINR(dynamicBalances.closing)}</div>
               </div>
             </div>
           </div>
@@ -260,12 +446,15 @@ export default function StatementView() {
                 <FileText size={18} style={{ color: '#2563eb' }} />
                 Statement Journal Entries
               </h2>
-              <span className="badge badge-cyan">{statement.totalEntries} Total Records</span>
+              <span className="badge badge-cyan">{filteredEntries.length} Records</span>
             </div>
 
-            {statement.entries.length === 0 ? (
+            {filteredEntries.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
-                No transactions recorded for this selected period.
+                <div style={{ fontWeight: 600, color: '#334155', marginBottom: '0.3rem' }}>No matching journal entries found.</div>
+                <div style={{ fontSize: '0.8rem' }}>
+                  {searchQuery || fromDate || toDate ? 'Try adjusting your date range or clearing filters.' : 'Transactions will appear here as entries are posted.'}
+                </div>
               </div>
             ) : (
               <div className="table-responsive">
@@ -281,7 +470,7 @@ export default function StatementView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {statement.entries.map((entry) => (
+                    {filteredEntries.map((entry) => (
                       <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td className="mono" style={{ padding: '0.8rem 1rem', color: '#2563eb', fontWeight: 700 }}>
                           #{entry.id}

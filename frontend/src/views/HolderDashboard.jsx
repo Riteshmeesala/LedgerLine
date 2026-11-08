@@ -204,14 +204,32 @@ export default function HolderDashboard() {
     document.body.removeChild(link);
   };
 
-  // Filtered transactions
+  // Filtered transactions (Bug 1 Fix: Exact numeric transaction value match vs description/reference match)
   const filteredEntries = useMemo(() => {
     return tapeEntries.filter(entry => {
       const matchesFilter = activityFilter === 'ALL' || entry.direction === activityFilter;
-      const matchesSearch = !searchQuery || 
-        entry.id.toString().includes(searchQuery) ||
-        (entry.transferId && entry.transferId.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        entry.amount.toString().includes(searchQuery);
+      
+      let matchesSearch = true;
+      const q = searchQuery.trim();
+      if (q) {
+        const numericQuery = Number(q);
+        const isNumeric = !isNaN(numericQuery) && q !== '';
+
+        if (isNumeric) {
+          // Exact match on transaction amount (minor units / paise or converted rupees)
+          const absAmount = Math.abs(entry.amount);
+          matchesSearch = absAmount === numericQuery || (absAmount / 100) === numericQuery;
+        } else {
+          // Non-numeric: string matching only on description/reference IDs
+          const qLower = q.toLowerCase();
+          matchesSearch = Boolean(
+            (entry.transferId && entry.transferId.toLowerCase().includes(qLower)) ||
+            (entry.description && entry.description.toLowerCase().includes(qLower)) ||
+            (entry.id && entry.id.toString() === q)
+          );
+        }
+      }
+
       return matchesFilter && matchesSearch;
     });
   }, [tapeEntries, activityFilter, searchQuery]);
@@ -505,7 +523,7 @@ export default function HolderDashboard() {
               <Download size={14} /> Export
             </button>
             <button
-              onClick={fetchTapeEntries}
+              onClick={() => { fetchAccounts(); fetchTapeEntries(); }}
               className="btn btn-secondary"
               style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
               title="Refresh transaction feed"

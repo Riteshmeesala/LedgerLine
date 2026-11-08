@@ -3,7 +3,8 @@ import { apiClient } from '../api/client';
 import { formatINR } from '../utils/money';
 import { 
   Activity, ShieldCheck, ShieldAlert, CheckCircle2, RefreshCw, 
-  Link2, AlertTriangle, Layers, Lock, Cpu, Database
+  Link2, AlertTriangle, Layers, Lock, Cpu, Database, Search,
+  Download, Copy, Check, Filter, Sparkles
 } from 'lucide-react';
 
 /**
@@ -21,6 +22,9 @@ export default function AuditorDashboard() {
   const [verificationResult, setVerificationResult] = useState(null);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [actionFilter, setActionFilter] = useState('ALL');
+  const [copiedHash, setCopiedHash] = useState(null);
 
   const fetchConservation = async () => {
     setConservationLoading(true);
@@ -37,7 +41,7 @@ export default function AuditorDashboard() {
   const fetchAuditLogs = async () => {
     setLogsLoading(true);
     try {
-      const data = await apiClient('/api/audit?page=0&size=20');
+      const data = await apiClient('/api/audit?page=0&size=50');
       const sorted = [...(data.content || [])].reverse();
       setAuditLogs(sorted);
     } catch (err) {
@@ -65,6 +69,49 @@ export default function AuditorDashboard() {
     fetchAuditLogs();
   }, []);
 
+  const handleCopyHash = (hash) => {
+    navigator.clipboard.writeText(hash);
+    setCopiedHash(hash);
+    setTimeout(() => setCopiedHash(null), 2000);
+  };
+
+  const handleExportAuditProof = () => {
+    if (auditLogs.length === 0) return;
+    const proofDoc = {
+      verifiedAt: new Date().toISOString(),
+      conservationSummary: conservation,
+      chainVerification: verificationResult,
+      totalBlocks: auditLogs.length,
+      genesisBlockSeq: auditLogs[0]?.seq,
+      headBlockSeq: auditLogs[auditLogs.length - 1]?.seq,
+      blocks: auditLogs
+    };
+    const blob = new Blob([JSON.stringify(proofDoc, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ledgerline_audit_proof_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Filter audit logs
+  const filteredLogs = auditLogs.filter((block) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = 
+      block.seq.toString().includes(q) ||
+      (block.action && block.action.toLowerCase().includes(q)) ||
+      (block.entityType && block.entityType.toLowerCase().includes(q)) ||
+      (block.entityId && block.entityId.toLowerCase().includes(q)) ||
+      (block.hash && block.hash.toLowerCase().includes(q));
+    const matchesAction = actionFilter === 'ALL' || block.action === actionFilter;
+    return matchesSearch && matchesAction;
+  });
+
+  const uniqueActions = ['ALL', ...new Set(auditLogs.map(l => l.action).filter(Boolean))];
+
   return (
     <div className="view-container">
       {/* Header */}
@@ -86,7 +133,10 @@ export default function AuditorDashboard() {
 
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', width: 'auto' }}>
             <button onClick={() => { fetchConservation(); fetchAuditLogs(); }} className="btn btn-secondary">
-              <RefreshCw size={16} /> Refresh
+              <RefreshCw size={15} /> Refresh
+            </button>
+            <button onClick={handleExportAuditProof} disabled={auditLogs.length === 0} className="btn btn-secondary">
+              <Download size={15} /> Export Audit Proof
             </button>
             <button
               onClick={verifyAuditChain}
