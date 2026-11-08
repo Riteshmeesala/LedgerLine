@@ -8,3 +8,4 @@ public record AccountStatusChangeRequest(
         @Size(min = 3, max = 200, message = "Reason must be between 3 and 200 characters")
         String reason
 ) {}
+

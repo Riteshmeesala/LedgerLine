@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { formatINR } from '../utils/money';
 import { 
   Users, UserPlus, Shield, Snowflake, Sun, AlertTriangle, 
   CheckCircle2, Key, Lock, RefreshCw, Search, Copy, Check,
-  Activity, ShieldCheck, Wallet, Database, X
+  Activity, ShieldCheck, Wallet, Database, X, UserX, UserCheck
 } from 'lucide-react';
 
 /**
@@ -13,6 +14,7 @@ import {
  * Administrative user provisioning, portfolio oversight, and account freeze/unfreeze controls restricted to ROLE_ADMIN.
  */
 export default function AdminPanel() {
+  const { user: currentUser } = useAuth();
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,6 +22,12 @@ export default function AdminPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [copiedId, setCopiedId] = useState(null);
+
+  // Feature 5: User Governance State
+  const [usersList, setUsersList] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [userSearch, setUserSearch] = useState('');
+  const [actionLoadingId, setActionLoadingId] = useState(null);
 
   // Feature 4: Freeze/Unfreeze Reason Modal State
   const [freezeModal, setFreezeModal] = useState({
@@ -49,8 +57,20 @@ export default function AdminPanel() {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const data = await apiClient('/api/admin/users');
+      setUsersList(data);
+    } catch (err) {
+      console.error('Failed to fetch user directory', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchAccounts();
+    fetchUsers();
   }, []);
 
   const handleCopyId = (id) => {
@@ -74,10 +94,29 @@ export default function AdminPanel() {
       setEmail('');
       setPassword('');
       setRole('HOLDER');
+      fetchUsers();
     } catch (err) {
       setError(err.detail || err.message || 'Failed to create user.');
     } finally {
       setUserLoading(false);
+    }
+  };
+
+  const handleToggleUserStatus = async (targetUser) => {
+    setError(null);
+    setSuccessMsg(null);
+    setActionLoadingId(targetUser.id);
+    const action = targetUser.enabled ? 'disable' : 'enable';
+    try {
+      await apiClient(`/api/admin/users/${targetUser.id}/${action}`, {
+        method: 'POST'
+      });
+      setSuccessMsg(`User ${targetUser.email} has been successfully ${action}d. Active sessions revoked.`);
+      await fetchUsers();
+    } catch (err) {
+      setError(err.detail || err.message || `Failed to ${action} user.`);
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -413,6 +452,118 @@ export default function AdminPanel() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Feature 5: User Access & Governance Console */}
+      <div className="glass-panel" style={{ padding: '1.8rem', background: '#ffffff', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.8rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#fdf2f8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#db2777' }}>
+              <Shield size={18} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
+                User Access & Identity Governance
+              </h2>
+              <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                Server-enforced session revocation; disabled accounts are rejected with 401 on next request
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div style={{ position: 'relative', minWidth: '220px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search user email or role..."
+                className="form-input"
+                style={{ paddingLeft: '2.1rem', fontSize: '0.82rem', padding: '0.45rem 0.5rem 0.45rem 2.1rem' }}
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+              />
+            </div>
+            <button onClick={fetchUsers} className="btn btn-secondary btn-sm" title="Refresh Users">
+              <RefreshCw size={14} />
+            </button>
+          </div>
+        </div>
+
+        {usersLoading ? (
+          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>
+            Loading user identities...
+          </div>
+        ) : usersList.length === 0 ? (
+          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '10px' }}>
+            No registered users found.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #f1f5f9', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <th style={{ padding: '0.75rem 1rem' }}>User Identity</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Role</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Account State</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Governance Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersList
+                  .filter(u => {
+                    const q = userSearch.toLowerCase();
+                    return u.email.toLowerCase().includes(q) || u.role.toLowerCase().includes(q);
+                  })
+                  .map(u => {
+                    const isSelf = currentUser && (currentUser.id === u.id || currentUser.email === u.email);
+                    const isLoading = actionLoadingId === u.id;
+                    return (
+                      <tr key={u.id} style={{ borderBottom: '1px solid #f8fafc', transition: 'background-color 0.15s' }}>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <div style={{ fontWeight: 600, color: '#0f172a' }}>{u.email}</div>
+                          <div className="mono" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                            {u.id}
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <span className={`badge ${u.role === 'ADMIN' ? 'badge-violet' : u.role === 'AUDITOR' ? 'badge-cyan' : 'badge-slate'}`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <span className={`badge ${u.enabled ? 'badge-emerald' : 'badge-crimson'}`}>
+                            {u.enabled ? 'ACTIVE' : 'DISABLED'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
+                          {isSelf ? (
+                            <span style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#f1f5f9', padding: '0.3rem 0.65rem', borderRadius: '6px' }}>
+                              <Shield size={13} style={{ color: '#7c3aed' }} /> Self (Protected)
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isLoading}
+                              onClick={() => handleToggleUserStatus(u)}
+                              className={`btn ${u.enabled ? 'btn-danger' : 'btn-secondary'} btn-sm`}
+                              style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+                            >
+                              {isLoading ? (
+                                'Updating...'
+                              ) : u.enabled ? (
+                                <><UserX size={13} /> Disable Access</>
+                              ) : (
+                                <><UserCheck size={13} /> Enable Access</>
+                              )}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Feature 4: Reason Mandated Freeze/Unfreeze Modal */}

@@ -656,6 +656,94 @@ curl -X POST http://localhost:8080/api/admin/accounts/c1000000-0000-0000-0000-00
 
 ---
 
+### 6.4 List Users (`GET /api/admin/users`)
+Lists all registered stakeholders with their role and enabled status. Restricted to `ADMIN`.
+
+```bash
+curl -X GET http://localhost:8080/api/admin/users \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Response (HTTP 200 OK)**:
+```json
+[
+  {
+    "id": "a1000000-0000-0000-0000-000000000001",
+    "email": "admin@ledgerline.local",
+    "role": "ADMIN",
+    "enabled": true
+  },
+  {
+    "id": "c1000000-0000-0000-0000-000000000001",
+    "email": "holder1@ledgerline.local",
+    "role": "HOLDER",
+    "enabled": true
+  }
+]
+```
+
+---
+
+### 6.5 Disable User (`POST /api/admin/users/{id}/disable`)
+Disables a stakeholder account. An administrator cannot disable their own account, and the system prevents disabling the last active administrator. Setting `enabled = false` immediately invalidates existing JWT sessions with HTTP 401 Unauthorized on the user's next request. Logs an immutable `DISABLE_USER` audit record.
+
+```bash
+curl -X POST http://localhost:8080/api/admin/users/c1000000-0000-0000-0000-000000000001/disable \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Response (HTTP 200 OK)**:
+```json
+{
+  "id": "c1000000-0000-0000-0000-000000000001",
+  "email": "holder1@ledgerline.local",
+  "role": "HOLDER",
+  "enabled": false
+}
+```
+
+**Error Responses**:
+- Self-disable attempt (HTTP 422 Unprocessable Entity):
+```json
+{
+  "type": "about:blank",
+  "title": "Unprocessable Entity",
+  "status": 422,
+  "detail": "An administrator cannot disable their own account"
+}
+```
+- Last active administrator protection (HTTP 422 Unprocessable Entity):
+```json
+{
+  "type": "about:blank",
+  "title": "Unprocessable Entity",
+  "status": 422,
+  "detail": "Cannot disable the last active administrator"
+}
+```
+
+---
+
+### 6.6 Enable User (`POST /api/admin/users/{id}/enable`)
+Re-enables a previously disabled stakeholder account. Restores login and session validity. Logs an immutable `ENABLE_USER` audit record.
+
+```bash
+curl -X POST http://localhost:8080/api/admin/users/c1000000-0000-0000-0000-000000000001/enable \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Response (HTTP 200 OK)**:
+```json
+{
+  "id": "c1000000-0000-0000-0000-000000000001",
+  "email": "holder1@ledgerline.local",
+  "role": "HOLDER",
+  "enabled": true
+}
+```
+
+---
+
 ## 7. Health & Monitoring
 
 ### 7.1 System Health (`GET /api/health`)

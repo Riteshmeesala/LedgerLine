@@ -34,10 +34,178 @@ public class AdminController {
         this.auditService = auditService;
     }
 
+    @GetMapping("/users")
+    public ResponseEntity<List<UserResponse>> listUsers() {
+        List<UserResponse> users = jdbcTemplate.query(
+                "SELECT id, email, role, enabled FROM users ORDER BY created_at ASC LIMIT 100",
+                (rs, rowNum) -> new UserResponse(
+                        (UUID) rs.getObject("id"),
+                        rs.getString("email"),
+                        com.ledgerline.model.UserRole.valueOf(rs.getString("role")),
+                        rs.getBoolean("enabled")
+                )
+        );
+        return ResponseEntity.ok(users);
+    }
+
     @PostMapping("/users")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         UserResponse response = authService.createUserByAdmin(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/users/{id}/disable")
+    public ResponseEntity<?> disableUser(
+            @PathVariable UUID id,
+            Authentication authentication,
+            HttpServletRequest servletRequest) {
+        UUID adminId = parseAdminId(authentication);
+
+        List<Map<String, Object>> targetList = jdbcTemplate.queryForList(
+                "SELECT id, email, role, enabled FROM users WHERE id = ?",
+                id
+        );
+        if (targetList.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .contentType(MediaType.parseMediaType("application/problem+json"))
+                    .body(Map.of(
+                            "type", "about:blank",
+                            "title", "Not Found",
+                            "status", 404,
+                            "detail", "User not found: " + id
+                    ));
+        }
+
+        Map<String, Object> target = targetList.get(0);
+        String roleStr = (String) target.get("role");
+        boolean isCurrentlyEnabled = Boolean.TRUE.equals(target.get("enabled"));
+
+        if (!isCurrentlyEnabled) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .contentType(MediaType.parseMediaType("application/problem+json"))
+                    .body(Map.of(
+                            "type", "about:blank",
+                            "title", "Unprocessable Entity",
+                            "status", 422,
+                            "detail", "User is already disabled"
+                    ));
+        }
+
+        if ("ADMIN".equals(roleStr)) {
+            Long activeAdmins = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM users WHERE role = 'ADMIN' AND enabled = true",
+                    Long.class
+            );
+            if (activeAdmins != null && activeAdmins <= 1L) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                        .contentType(MediaType.parseMediaType("application/problem+json"))
+                        .body(Map.of(
+                                "type", "about:blank",
+                                "title", "Unprocessable Entity",
+                                "status", 422,
+                                "detail", "Cannot disable the last active administrator"
+                        ));
+            }
+        }
+
+        if (id.equals(adminId)) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .contentType(MediaType.parseMediaType("application/problem+json"))
+                    .body(Map.of(
+                            "type", "about:blank",
+                            "title", "Unprocessable Entity",
+                            "status", 422,
+                            "detail", "An administrator cannot disable their own account"
+                    ));
+        }
+
+        jdbcTemplate.update("UPDATE users SET enabled = false WHERE id = ?", id);
+
+        String email = (String) target.get("email");
+        auditService.appendAudit(
+                adminId,
+                "ADMIN",
+                "DISABLE_USER",
+                "USER",
+                id.toString(),
+                Map.of(
+                        "userId", id.toString(),
+                        "email", email,
+                        "role", roleStr,
+                        "enabled", false
+                ),
+                servletRequest != null ? servletRequest.getRemoteAddr() : null
+        );
+
+        return ResponseEntity.ok(new UserResponse(
+                id,
+                email,
+                com.ledgerline.model.UserRole.valueOf(roleStr),
+                false
+        ));
+    }
+
+    @PostMapping("/users/{id}/enable")
+    public ResponseEntity<?> enableUser(
+            @PathVariable UUID id,
+            Authentication authentication,
+            HttpServletRequest servletRequest) {
+        UUID adminId = parseAdminId(authentication);
+
+        List<Map<String, Object>> targetList = jdbcTemplate.queryForList(
+                "SELECT id, email, role, enabled FROM users WHERE id = ?",
+                id
+        );
+        if (targetList.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .contentType(MediaType.parseMediaType("application/problem+json"))
+                    .body(Map.of(
+                            "type", "about:blank",
+                            "title", "Not Found",
+                            "status", 404,
+                            "detail", "User not found: " + id
+                    ));
+        }
+
+        Map<String, Object> target = targetList.get(0);
+        String roleStr = (String) target.get("role");
+        boolean isCurrentlyEnabled = Boolean.TRUE.equals(target.get("enabled"));
+
+        if (isCurrentlyEnabled) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .contentType(MediaType.parseMediaType("application/problem+json"))
+                    .body(Map.of(
+                            "type", "about:blank",
+                            "title", "Unprocessable Entity",
+                            "status", 422,
+                            "detail", "User is already enabled"
+                    ));
+        }
+
+        jdbcTemplate.update("UPDATE users SET enabled = true WHERE id = ?", id);
+
+        String email = (String) target.get("email");
+        auditService.appendAudit(
+                adminId,
+                "ADMIN",
+                "ENABLE_USER",
+                "USER",
+                id.toString(),
+                Map.of(
+                        "userId", id.toString(),
+                        "email", email,
+                        "role", roleStr,
+                        "enabled", true
+                ),
+                servletRequest != null ? servletRequest.getRemoteAddr() : null
+        );
+
+        return ResponseEntity.ok(new UserResponse(
+                id,
+                email,
+                com.ledgerline.model.UserRole.valueOf(roleStr),
+                true
+        ));
     }
 
     @PostMapping("/accounts/{id}/freeze")

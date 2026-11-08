@@ -72,17 +72,19 @@ public class AuthAndAuthorizationSecurityTest {
     @BeforeEach
     void setUp() throws Exception {
         // Create Holder A
-        holderIdA = UUID.randomUUID();
-        String emailA = "holder-a-" + holderIdA + "@test.com";
+        UUID dummyA = UUID.randomUUID();
+        String emailA = "holder-a-" + dummyA + "@test.com";
         registerUser(emailA, "Password123!");
         holderTokenA = loginUser(emailA, "Password123!");
+        holderIdA = jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", UUID.class, emailA);
         accountIdA = createAccount(holderTokenA, "Holder A Account");
 
         // Create Holder B
-        holderIdB = UUID.randomUUID();
-        String emailB = "holder-b-" + holderIdB + "@test.com";
+        UUID dummyB = UUID.randomUUID();
+        String emailB = "holder-b-" + dummyB + "@test.com";
         registerUser(emailB, "Password123!");
         holderTokenB = loginUser(emailB, "Password123!");
+        holderIdB = jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", UUID.class, emailB);
         accountIdB = createAccount(holderTokenB, "Holder B Account");
 
         // Create Admin
@@ -390,6 +392,110 @@ public class AuthAndAuthorizationSecurityTest {
         );
         assertThat(unfreezeLogs).isNotEmpty();
         assertThat(unfreezeLogs.get(0).get("payload").toString()).contains(unfreezeReason);
+    }
+
+    @Test
+    @DisplayName("Feature 5: ADMIN can disable and re-enable user with audit logging")
+    void adminCanDisableAndEnableUserWithAuditLog() throws Exception {
+        // 1. Admin disables Holder A
+        mockMvc.perform(post("/api/admin/users/{id}/disable", holderIdA)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false));
+
+        // Verify DB status
+        Boolean isEnabled = jdbcTemplate.queryForObject(
+                "SELECT enabled FROM users WHERE id = ?",
+                Boolean.class,
+                holderIdA
+        );
+        assertThat(isEnabled).isFalse();
+
+        // Verify audit log has DISABLE_USER
+        List<Map<String, Object>> disableLogs = jdbcTemplate.queryForList(
+                "SELECT payload FROM audit_log WHERE action = 'DISABLE_USER' AND entity_id = ? ORDER BY seq DESC LIMIT 1",
+                holderIdA.toString()
+        );
+        assertThat(disableLogs).isNotEmpty();
+
+        // 2. Admin re-enables Holder A
+        mockMvc.perform(post("/api/admin/users/{id}/enable", holderIdA)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(true));
+
+        isEnabled = jdbcTemplate.queryForObject(
+                "SELECT enabled FROM users WHERE id = ?",
+                Boolean.class,
+                holderIdA
+        );
+        assertThat(isEnabled).isTrue();
+
+        // Verify audit log has ENABLE_USER
+        List<Map<String, Object>> enableLogs = jdbcTemplate.queryForList(
+                "SELECT payload FROM audit_log WHERE action = 'ENABLE_USER' AND entity_id = ? ORDER BY seq DESC LIMIT 1",
+                holderIdA.toString()
+        );
+        assertThat(enableLogs).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("Feature 5 Security: A disabled user's existing token is rejected with 401 on the next request")
+    void disabledUserExistingTokenIsRejectedWith401OnNextRequest() throws Exception {
+        // Holder B makes an initial successful call with their valid JWT
+        mockMvc.perform(get("/api/accounts")
+                        .header("Authorization", "Bearer " + holderTokenB))
+                .andExpect(status().isOk());
+
+        // Admin disables Holder B
+        mockMvc.perform(post("/api/admin/users/{id}/disable", holderIdB)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false));
+
+        // The very next request made by Holder B with their existing token MUST return 401 Unauthorized
+        mockMvc.perform(get("/api/accounts")
+                        .header("Authorization", "Bearer " + holderTokenB))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Feature 5 Security: An administrator cannot disable their own account (HTTP 422)")
+    void adminCannotDisableThemselvesReturns422() throws Exception {
+        UUID otherAdminId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO users (id, email, password_hash, role, enabled, failed_logins, created_at) VALUES (?, ?, '$2a$12$e8xL4hM45cIuR7w2xK5.4.mE9oQ31L8mS5vU3kL6yY7zW9x1v2b3u', 'ADMIN', TRUE, 0, ?)",
+                otherAdminId, "other-admin-" + otherAdminId + "@test.com", Timestamp.from(Instant.now())
+        );
+
+        mockMvc.perform(post("/api/admin/users/{id}/disable", adminId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value("An administrator cannot disable their own account"));
+    }
+
+    @Test
+    @DisplayName("Feature 5 Security: The last active ADMIN cannot be disabled (HTTP 422)")
+    void cannotDisableLastActiveAdminReturns422() throws Exception {
+        // Disable all other admins so adminId is the sole active admin
+        jdbcTemplate.update("UPDATE users SET enabled = false WHERE role = 'ADMIN' AND id != ?", adminId);
+
+        mockMvc.perform(post("/api/admin/users/{id}/disable", adminId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.detail").value("Cannot disable the last active administrator"));
+    }
+
+    @Test
+    @DisplayName("Feature 5 Security: HOLDER and AUDITOR cannot disable or enable users (HTTP 403)")
+    void holderAndAuditorCannotDisableOrEnableUsersReturns403() throws Exception {
+        mockMvc.perform(post("/api/admin/users/{id}/disable", holderIdA)
+                        .header("Authorization", "Bearer " + holderTokenA))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/admin/users/{id}/enable", holderIdA)
+                        .header("Authorization", "Bearer " + holderTokenA))
+                .andExpect(status().isForbidden());
     }
 
     private void registerUser(String email, String password) throws Exception {
