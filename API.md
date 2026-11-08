@@ -830,4 +830,16 @@ All error responses return `Content-Type: application/problem+json` with sanitiz
 | **429 Too Many Requests** | `Too Many Requests` | Rate limit exceeded (e.g. 5 failed login attempts triggers 15-minute lockout). |
 | **500 Internal Server Error** | `Internal Server Error` | Unexpected server failure; sanitized without leaking stack trace or file paths. |
 
+---
+
+## 9. Client Session & Inactivity Watchdog Specification
+
+- **Server-Side Token Validity**: JWT tokens carry an absolute `exp` timestamp of 15 minutes. Expired tokens fail with HTTP 401 Unauthorized.
+- **Client-Side Inactivity Watchdog (HOLDER)**:
+  - Tracks user activity (`mousemove`, `mousedown`, `keydown`, `touchstart`, `scroll`, `click`).
+  - **9-Minute Warning**: Renders a security modal with a 60-second countdown and a "Stay Signed In" button.
+  - **10-Minute Auto-Logout**: Purges volatile `inMemoryToken` via `clearToken()`, resets local session state, and redirects to `/login`.
+  - Non-HOLDER roles (`ADMIN`, `AUDITOR`) operate without the inactivity timer.
+
+
 
