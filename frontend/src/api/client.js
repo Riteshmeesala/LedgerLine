@@ -144,6 +144,13 @@ export async function apiClient(endpoint, options = {}) {
     }
   }
 
+  // Automatic retry once for safe read operations during free-tier cloud wake-ups (502/503/504)
+  const isReadOperation = !options.method || options.method.toUpperCase() === 'GET';
+  if (isReadOperation && (response.status >= 502 && response.status <= 504) && !options._isRetry) {
+    await new Promise(r => setTimeout(r, 2500));
+    return apiClient(endpoint, { ...options, _isRetry: true });
+  }
+
   const isReplayed = response.headers.get('Idempotent-Replayed') === 'true';
 
   let data = null;
@@ -159,6 +166,8 @@ export async function apiClient(endpoint, options = {}) {
       const text = await response.text();
       if (text && !text.includes('<!DOCTYPE') && !text.includes('<html')) {
         data = { message: text };
+      } else if (response.status >= 502 && response.status <= 504) {
+        data = { message: 'Cloud backend is waking up from idle (~20-30s on free tier). Please tap Retry in a moment.' };
       } else {
         data = { message: `Server returned status ${response.status}` };
       }

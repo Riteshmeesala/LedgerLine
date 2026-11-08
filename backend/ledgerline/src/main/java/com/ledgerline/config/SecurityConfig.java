@@ -108,8 +108,16 @@ public class SecurityConfig {
                 }
             }
         }
-        if (!origins.contains("https://ledger-line-orpin.vercel.app")) {
-            origins.add("https://ledger-line-orpin.vercel.app");
+        for (String domain : List.of(
+                "https://ledger-line-orpin.vercel.app",
+                "https://line-frontend-zzv7.vercel.app",
+                "https://ledgerline-frontend-zzv7.vercel.app",
+                "https://frontend-zzv7.vercel.app",
+                "https://ledgerline.vercel.app"
+        )) {
+            if (!origins.contains(domain)) {
+                origins.add(domain);
+            }
         }
         // Strict list of allowed origins from configuration. Never wildcard "*".
         config.setAllowedOrigins(origins);

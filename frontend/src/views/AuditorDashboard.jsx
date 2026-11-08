@@ -165,9 +165,18 @@ export default function AuditorDashboard() {
       </div>
 
       {error && (
-        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '1.8rem', color: '#be123c', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          <AlertTriangle size={20} />
-          <span>{error}</span>
+        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '12px', padding: '0.85rem 1.1rem', marginBottom: '1.8rem', color: '#be123c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.8rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>{error}</span>
+          </div>
+          <button
+            onClick={() => { setError(null); fetchConservation(); fetchAuditLogs(); }}
+            className="btn btn-secondary btn-sm"
+            style={{ borderColor: '#fca5a5', color: '#be123c', background: '#ffffff', padding: '0.25rem 0.65rem', fontSize: '0.78rem' }}
+          >
+            <RefreshCw size={13} /> Retry
+          </button>
         </div>
       )}
 
