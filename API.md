@@ -85,6 +85,55 @@ curl -X GET http://localhost:8080/api/me \
 
 ---
 
+### 1.4 Get My Security Activity (`GET /api/me/activity`)
+Retrieves paginated cryptographic audit events where the caller is the primary actor. Does not require `AUDITOR` or `ADMIN` roles. Unconditionally binds caller identity on the server side; any client-supplied `actorId` parameter is ignored. Capped at max 100 rows per page.
+
+```bash
+curl -X GET "http://localhost:8080/api/me/activity?page=0&size=20" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+**Response (HTTP 200 OK)**:
+```json
+{
+  "content": [
+    {
+      "seq": 142,
+      "actorId": "11111111-1111-1111-1111-111111111111",
+      "actorRole": "HOLDER",
+      "action": "TRANSFER",
+      "entityType": "ACCOUNT",
+      "entityId": "c1000000-0000-0000-0000-000000000001",
+      "payload": {
+        "amount": 2500,
+        "counterparty": "c2000000-0000-0000-0000-000000000002"
+      },
+      "ip": "127.0.0.1",
+      "prevHash": "3b6807849e7561fcf31835bc45f4ac1c4f03932cbce6f7f2b960b77a7b8e6ee1",
+      "hash": "8a32973f6087d1959725ee190a6f8b9db813e3db89c676735db20ce3ff15e7a9",
+      "createdAt": "2026-11-08T18:00:00Z"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+**Error Responses**:
+- Unauthenticated (HTTP 401 Unauthorized Problem Details):
+```json
+{
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
+  "detail": "Full authentication is required to access this resource"
+}
+```
+
+---
+
 ## 2. Account Management Endpoints
 
 ### 2.1 List Accounts (`GET /api/accounts`)

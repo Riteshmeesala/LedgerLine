@@ -5,7 +5,8 @@ import { generateIdempotencyKey } from '../utils/idempotency';
 import { 
   Wallet, Plus, ArrowUpRight, ArrowDownLeft, Send, RefreshCw, 
   CheckCircle2, AlertTriangle, Clock, Copy, Check, ShieldCheck,
-  Eye, EyeOff, Download, Share2, CreditCard, Sparkles, Filter, Search
+  Eye, EyeOff, Download, Share2, CreditCard, Sparkles, Filter, Search,
+  Shield, FileText, Activity, Key
 } from 'lucide-react';
 
 export default function HolderDashboard() {
@@ -37,6 +38,11 @@ export default function HolderDashboard() {
 
   // Live Activity entries
   const [tapeEntries, setTapeEntries] = useState([]);
+
+  // Feature 8: Holder My Security Activity State
+  const [feedTab, setFeedTab] = useState('LEDGER'); // 'LEDGER' | 'SECURITY'
+  const [myActivity, setMyActivity] = useState([]);
+  const [myActivityLoading, setMyActivityLoading] = useState(false);
 
   const copyToClipboard = (text, id) => {
     navigator.clipboard.writeText(text);
@@ -73,16 +79,34 @@ export default function HolderDashboard() {
     }
   };
 
+  const fetchMyActivity = async () => {
+    setMyActivityLoading(true);
+    try {
+      const res = await apiClient('/api/me/activity?page=0&size=30');
+      setMyActivity(res.content || []);
+    } catch (e) {
+      console.error('Failed to load my activity', e);
+    } finally {
+      setMyActivityLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchAccounts();
   }, []);
 
   // Auto-refresh activity every 5 seconds
   useEffect(() => {
-    fetchTapeEntries();
-    const interval = setInterval(fetchTapeEntries, 5000);
-    return () => clearInterval(interval);
-  }, [accounts, selectedAccount]);
+    if (feedTab === 'LEDGER') {
+      fetchTapeEntries();
+      const interval = setInterval(fetchTapeEntries, 5000);
+      return () => clearInterval(interval);
+    } else {
+      fetchMyActivity();
+      const interval = setInterval(fetchMyActivity, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [accounts, selectedAccount, feedTab]);
 
   const openActionModal = (type, acc) => {
     setActionType(type);
@@ -510,166 +534,296 @@ export default function HolderDashboard() {
 
       {/* Modern Transaction Feed Section */}
       <div className="hud-card" style={{ padding: '1.5rem', background: '#ffffff', marginBottom: '2rem' }}>
-        {/* Section Header */}
+        {/* Section Header with Feed Switcher */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.8rem' }}>
-          <div>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' }}>
-              Transaction Activity
-            </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.35rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setFeedTab('LEDGER')}
+                style={{
+                  padding: '0.4rem 0.85rem',
+                  borderRadius: '7px',
+                  border: 'none',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: feedTab === 'LEDGER' ? '#ffffff' : 'transparent',
+                  color: feedTab === 'LEDGER' ? '#0f172a' : '#64748b',
+                  boxShadow: feedTab === 'LEDGER' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
+                }}
+              >
+                Statement Ledger
+              </button>
+              <button
+                type="button"
+                onClick={() => { setFeedTab('SECURITY'); fetchMyActivity(); }}
+                style={{
+                  padding: '0.4rem 0.85rem',
+                  borderRadius: '7px',
+                  border: 'none',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: feedTab === 'SECURITY' ? '#ffffff' : 'transparent',
+                  color: feedTab === 'SECURITY' ? '#2563eb' : '#64748b',
+                  boxShadow: feedTab === 'SECURITY' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+              >
+                <Shield size={13} /> My Audit Tape
+              </button>
+            </div>
             <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
-              Instant settlement on {currentAcc?.name || 'account'}
+              {feedTab === 'LEDGER' ? `Double-entry statement for ${currentAcc?.name || 'account'}` : 'Cryptographic SHA-256 events bound strictly to your identity'}
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {feedTab === 'LEDGER' && (
+              <button
+                onClick={exportToCSV}
+                disabled={tapeEntries.length === 0}
+                className="btn btn-secondary"
+                style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
+                title="Download CSV Statement"
+              >
+                <Download size={14} /> Export
+              </button>
+            )}
             <button
-              onClick={exportToCSV}
-              disabled={tapeEntries.length === 0}
+              onClick={() => { 
+                if (feedTab === 'LEDGER') {
+                  fetchAccounts(); fetchTapeEntries();
+                } else {
+                  fetchMyActivity();
+                }
+              }}
               className="btn btn-secondary"
               style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
-              title="Download CSV Statement"
-            >
-              <Download size={14} /> Export
-            </button>
-            <button
-              onClick={() => { fetchAccounts(); fetchTapeEntries(); }}
-              className="btn btn-secondary"
-              style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
-              title="Refresh transaction feed"
+              title="Refresh feed"
             >
               <RefreshCw size={14} /> Refresh
             </button>
           </div>
         </div>
 
-        {/* Filter Pills & Search */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
-          {/* Pills */}
-          <div style={{ display: 'flex', gap: '0.35rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '10px' }}>
-            {['ALL', 'CREDIT', 'DEBIT'].map(mode => (
-              <button
-                key={mode}
-                onClick={() => setActivityFilter(mode)}
-                style={{
-                  padding: '0.35rem 0.75rem',
-                  borderRadius: '7px',
-                  border: 'none',
-                  fontSize: '0.74rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: activityFilter === mode ? '#ffffff' : 'transparent',
-                  color: activityFilter === mode ? '#0f172a' : '#64748b',
-                  boxShadow: activityFilter === mode ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none'
-                }}
-              >
-                {mode === 'ALL' ? 'All' : mode === 'CREDIT' ? 'Money In' : 'Money Out'}
-              </button>
-            ))}
-          </div>
+        {feedTab === 'LEDGER' ? (
+          <>
+            {/* Filter Pills & Search */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
+              {/* Pills */}
+              <div style={{ display: 'flex', gap: '0.35rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '10px' }}>
+                {['ALL', 'CREDIT', 'DEBIT'].map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setActivityFilter(mode)}
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: '7px',
+                      border: 'none',
+                      fontSize: '0.74rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: activityFilter === mode ? '#ffffff' : 'transparent',
+                      color: activityFilter === mode ? '#0f172a' : '#64748b',
+                      boxShadow: activityFilter === mode ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none'
+                    }}
+                  >
+                    {mode === 'ALL' ? 'All' : mode === 'CREDIT' ? 'Money In' : 'Money Out'}
+                  </button>
+                ))}
+              </div>
 
-          {/* Search Box */}
-          <div style={{ position: 'relative', minWidth: 'min(100%, 200px)' }}>
-            <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-            <input
-              type="text"
-              placeholder="Search amount or ID..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.4rem 0.75rem 0.4rem 2.2rem',
-                fontSize: '0.82rem',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                background: '#f8fafc',
-                color: '#0f172a'
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Transaction List (Modern Feed View) */}
-        {filteredEntries.length === 0 ? (
-          <div style={{ padding: '3rem 1rem', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
-            <div style={{ fontWeight: 600, fontSize: '0.92rem', marginBottom: '0.2rem', color: '#334155' }}>
-              No transactions found
-            </div>
-            <div style={{ fontSize: '0.8rem' }}>
-              {searchQuery ? 'Try clearing your search query.' : 'Use the Deposit button above to fund your account.'}
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {filteredEntries.map((entry) => {
-              const isCredit = entry.direction === 'CREDIT';
-              return (
-                <div
-                  key={entry.id}
-                  onClick={() => { setSelectedTx(entry); setActionType('TX_DETAILS'); }}
+              {/* Search Box */}
+              <div style={{ position: 'relative', minWidth: 'min(100%, 200px)' }}>
+                <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder="Search amount or ID..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.9rem 1rem',
-                    borderRadius: '12px',
-                    border: '1px solid #f1f5f9',
-                    background: '#ffffff',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
+                    width: '100%',
+                    padding: '0.4rem 0.75rem 0.4rem 2.2rem',
+                    fontSize: '0.82rem',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    background: '#f8fafc',
+                    color: '#0f172a'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = '#cbd5e1'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = '#f1f5f9'}
-                >
-                  {/* Left: Icon & Description */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                />
+              </div>
+            </div>
+
+            {/* Transaction List (Modern Feed View) */}
+            {filteredEntries.length === 0 ? (
+              <div style={{ padding: '3rem 1rem', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.92rem', marginBottom: '0.2rem', color: '#334155' }}>
+                  No transactions found
+                </div>
+                <div style={{ fontSize: '0.8rem' }}>
+                  {searchQuery ? 'Try clearing your search query.' : 'Use the Deposit button above to fund your account.'}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {filteredEntries.map((entry) => {
+                  const isCredit = entry.direction === 'CREDIT';
+                  return (
                     <div
+                      key={entry.id}
+                      onClick={() => { setSelectedTx(entry); setActionType('TX_DETAILS'); }}
                       style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '12px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        background: isCredit ? '#ecfdf5' : '#fff1f2',
-                        color: isCredit ? '#059669' : '#e11d48',
-                        border: isCredit ? '1px solid #a7f3d0' : '1px solid #fecdd3',
-                        flexShrink: 0
+                        justifyContent: 'space-between',
+                        padding: '0.9rem 1rem',
+                        borderRadius: '12px',
+                        border: '1px solid #f1f5f9',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
                       }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = '#f1f5f9'}
                     >
-                      {isCredit ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
+                      {/* Left: Icon & Description */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                        <div
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: isCredit ? '#ecfdf5' : '#fff1f2',
+                            color: isCredit ? '#059669' : '#e11d48',
+                            border: isCredit ? '1px solid #a7f3d0' : '1px solid #fecdd3',
+                            flexShrink: 0
+                          }}
+                        >
+                          {isCredit ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
+                        </div>
+
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0f172a' }}>
+                            {isCredit ? 'Deposit Received' : 'Withdrawal / Transfer Out'}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>#{entry.id}</span>
+                            <span>•</span>
+                            <span>{new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Amount & Balance After */}
+                      <div style={{ textAlign: 'right' }}>
+                        <div
+                          className="tabular-nums"
+                          style={{
+                            fontWeight: 800,
+                            fontSize: '1.05rem',
+                            color: isCredit ? '#059669' : '#0f172a'
+                          }}
+                        >
+                          {isCredit ? `+${formatINR(entry.amount)}` : `-${formatINR(Math.abs(entry.amount))}`}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                          Bal: {formatINR(entry.balanceAfter)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          /* Feature 8: Security Activity Feed from /api/me/activity */
+          <div>
+            {myActivityLoading ? (
+              <div style={{ textAlign: 'center', padding: '3.5rem', color: '#64748b' }}>
+                <RefreshCw size={22} style={{ animation: 'spin 1.5s linear infinite', display: 'inline-block', marginBottom: '0.6rem' }} />
+                <div style={{ fontWeight: 600 }}>Loading cryptographic audit tape...</div>
+              </div>
+            ) : myActivity.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3.5rem 1.5rem', background: '#f8fafc', borderRadius: '14px', border: '1px dashed #e2e8f0' }}>
+                <ShieldCheck size={36} style={{ color: '#059669', margin: '0 auto 0.8rem auto' }} />
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#334155', marginBottom: '0.2rem' }}>
+                  No Audit Events Recorded Yet
+                </h3>
+                <p style={{ color: '#64748b', fontSize: '0.82rem' }}>
+                  Deposits, withdrawals, and peer-to-peer transfers automatically append cryptographic events here.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                {myActivity.map(event => (
+                  <div
+                    key={event.seq}
+                    className="stat-tile"
+                    style={{
+                      padding: '0.9rem 1.1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '1rem',
+                      background: '#ffffff',
+                      flexWrap: 'wrap'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '10px',
+                          background: '#eff6ff',
+                          color: '#2563eb',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}
+                      >
+                        <Activity size={18} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a' }}>
+                            {event.action}
+                          </span>
+                          <span className="badge badge-slate" style={{ fontSize: '0.65rem' }}>
+                            {event.entityType}
+                          </span>
+                          <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>
+                            Seq #{event.seq}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <code className="mono" style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                            Hash: {event.hash ? event.hash.slice(0, 10) + '...' + event.hash.slice(-6) : 'N/A'}
+                          </code>
+                          <span>•</span>
+                          <span>{new Date(event.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0f172a' }}>
-                        {isCredit ? 'Deposit Received' : 'Withdrawal / Transfer Out'}
-                      </div>
-                      <div style={{ fontSize: '0.74rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span>#{entry.id}</span>
-                        <span>•</span>
-                        <span>{new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="badge badge-cyan" style={{ fontSize: '0.72rem' }}>
+                        Caller Bound
+                      </span>
                     </div>
                   </div>
-
-                  {/* Right: Amount & Balance After */}
-                  <div style={{ textAlign: 'right' }}>
-                    <div
-                      className="tabular-nums"
-                      style={{
-                        fontWeight: 800,
-                        fontSize: '1.05rem',
-                        color: isCredit ? '#059669' : '#0f172a'
-                      }}
-                    >
-                      {isCredit ? `+${formatINR(entry.amount)}` : `-${formatINR(Math.abs(entry.amount))}`}
-                    </div>
-                    <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                      Bal: {formatINR(entry.balanceAfter)}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

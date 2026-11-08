@@ -587,4 +587,53 @@ public class AuditAndStatementsSecurityTest {
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.title").value("Unauthorized"));
     }
+
+    @Test
+    @DisplayName("Feature 8 Security: HOLDER can access /api/me/activity without AUDITOR or ADMIN roles")
+    void holderCanAccessMyActivityWithoutAuditorOrAdminRole() throws Exception {
+        mockMvc.perform(get("/api/me/activity")
+                        .header("Authorization", "Bearer " + holderToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20));
+    }
+
+    @Test
+    @DisplayName("Feature 8 Security: HOLDER never sees another user's audit events and client actorId param is ignored")
+    void holderNeverSeesAnotherUsersAuditEvents() throws Exception {
+        // Create an audit entry for another user (Auditor)
+        UUID otherUserId = auditorId;
+        jdbcTemplate.update(
+                "INSERT INTO audit_log (seq, actor_id, actor_role, action, entity_type, entity_id, payload, ip, prev_hash, hash, created_at) " +
+                "VALUES ((SELECT COALESCE(MAX(seq), 0) + 1 FROM audit_log), ?, 'AUDITOR', 'TRANSFER', 'ACCOUNT', ?, '{}'::jsonb, '127.0.0.1', '0000', '2222', NOW())",
+                otherUserId, UUID.randomUUID().toString()
+        );
+
+        // Holder calls /api/me/activity and even tries to snoop otherUserId via query param
+        mockMvc.perform(get("/api/me/activity")
+                        .header("Authorization", "Bearer " + holderToken)
+                        .param("actorId", otherUserId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.actorId == '" + otherUserId + "')]").isEmpty());
+    }
+
+    @Test
+    @DisplayName("Feature 8 Security: /api/me/activity pagination is capped at max size 100")
+    void myActivityPaginationIsCappedAt100() throws Exception {
+        mockMvc.perform(get("/api/me/activity")
+                        .header("Authorization", "Bearer " + holderToken)
+                        .param("size", "500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(100));
+    }
+
+    @Test
+    @DisplayName("Feature 8 Security: Unauthenticated request to /api/me/activity returns 401 Unauthorized")
+    void unauthenticatedRequestToMyActivityReturns401() throws Exception {
+        mockMvc.perform(get("/api/me/activity"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"));
+    }
 }

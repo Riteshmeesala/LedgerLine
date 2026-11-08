@@ -129,3 +129,4 @@ describe('Feature 7: HOLDER inactivity auto-logout (UI only)', () => {
     expect(onLogout).not.toHaveBeenCalled();
   });
 });
+
