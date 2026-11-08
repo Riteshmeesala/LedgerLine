@@ -75,36 +75,23 @@ export async function apiClient(endpoint, options = {}) {
   };
 
   let response;
-  // Strategy: 
-  // 1. If explicit VITE_API_BASE_URL provided, use it.
-  // 2. Otherwise, first attempt same-origin (Vercel proxy / Vite dev proxy) to prevent CORS and tracker blocks.
-  // 3. If same-origin throws network error, fail over to direct Render cloud URL.
-  const primaryUrl = customBase 
-    ? `${customBase}${cleanEndpoint}` 
-    : cleanEndpoint;
+  // Dual-Route Resilience Strategy:
+  // Route A: Primary target (custom base if configured, otherwise same-origin relative path via Vercel/Vite proxy).
+  // Route B: Redundant fallback target (swaps between direct Render cloud URL and same-origin proxy).
+  const routeA = customBase ? `${customBase}${cleanEndpoint}` : cleanEndpoint;
+  const routeB = customBase ? cleanEndpoint : `${DEFAULT_BACKEND_URL}${cleanEndpoint}`;
 
   try {
-    response = await fetch(primaryUrl, config);
-  } catch (primaryErr) {
-    // If not using a custom base and primary was relative, try direct Render backend fallback
-    if (!customBase && !primaryUrl.startsWith('http')) {
-      const fallbackUrl = `${DEFAULT_BACKEND_URL}${cleanEndpoint}`;
-      try {
-        response = await fetch(fallbackUrl, config);
-      } catch (fallbackErr) {
-        throw new ApiError(
-          0,
-          'Network Error',
-          'Unable to connect to ledger cloud. If this is the first request, the server may be waking up from idle (~30s). Please retry in a few moments or hard refresh.',
-          { primaryErr: primaryErr.message, fallbackErr: fallbackErr.message }
-        );
-      }
-    } else {
+    response = await fetch(routeA, config);
+  } catch (errA) {
+    try {
+      response = await fetch(routeB, config);
+    } catch (errB) {
       throw new ApiError(
         0,
         'Network Error',
-        'Unable to connect to server. Please check your network or wait ~30s if server is waking up from idle.',
-        { originalError: primaryErr.message }
+        'Unable to reach LedgerLine cloud. The server may be waking up from idle (~20-30s). Please click "Retry Login" below.',
+        { errA: errA.message, errB: errB.message }
       );
     }
   }
