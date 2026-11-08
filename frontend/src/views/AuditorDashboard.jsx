@@ -4,7 +4,8 @@ import { formatINR } from '../utils/money';
 import { 
   Activity, ShieldCheck, ShieldAlert, CheckCircle2, RefreshCw, 
   Link2, AlertTriangle, Layers, Lock, Cpu, Database, Search,
-  Download, Copy, Check, Filter, Sparkles, ArrowUpRight, ArrowDownLeft, X, Key, GitCommit
+  Download, Copy, Check, Filter, Sparkles, ArrowUpRight, ArrowDownLeft, X, Key, GitCommit,
+  ChevronLeft, ChevronRight, Scale
 } from 'lucide-react';
 
 /**
@@ -57,6 +58,26 @@ export default function AuditorDashboard() {
     setTraceError(null);
   };
 
+  // Feature 2: Account Reconciliation State
+  const [reconciliation, setReconciliation] = useState(null);
+  const [reconLoading, setReconLoading] = useState(true);
+  const [reconPage, setReconPage] = useState(0);
+  const [reconError, setReconError] = useState(null);
+
+  const fetchReconciliation = async (targetPage = 0) => {
+    setReconLoading(true);
+    setReconError(null);
+    try {
+      const data = await apiClient(`/api/ledger/reconciliation?page=${targetPage}&size=10`);
+      setReconciliation(data);
+      setReconPage(targetPage);
+    } catch (err) {
+      setReconError(err.detail || err.message || 'Failed to load reconciliation report.');
+    } finally {
+      setReconLoading(false);
+    }
+  };
+
   const fetchConservation = async () => {
     setConservationLoading(true);
     try {
@@ -98,6 +119,7 @@ export default function AuditorDashboard() {
   useEffect(() => {
     fetchConservation();
     fetchAuditLogs();
+    fetchReconciliation(0);
   }, []);
 
   const handleCopyHash = (hash) => {
@@ -163,7 +185,7 @@ export default function AuditorDashboard() {
           </div>
 
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', width: 'auto' }}>
-            <button onClick={() => { fetchConservation(); fetchAuditLogs(); }} className="btn btn-secondary">
+            <button onClick={() => { fetchConservation(); fetchAuditLogs(); fetchReconciliation(reconPage); }} className="btn btn-secondary">
               <RefreshCw size={15} /> Refresh
             </button>
             <button onClick={handleExportAuditProof} disabled={auditLogs.length === 0} className="btn btn-secondary">
@@ -324,6 +346,143 @@ export default function AuditorDashboard() {
             </div>
           </div>
         ) : null}
+      </div>
+
+      {/* Feature 2: AUDITOR Account Reconciliation Report */}
+      <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', background: '#ffffff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+            <Scale size={22} style={{ color: '#059669' }} />
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                Account-by-Account Reconciliation Audit
+              </h2>
+              <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                Verifies that every stored account balance strictly matches the sum of its historical ledger entries (Δ = 0)
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {reconciliation && (
+              <span className={`badge ${reconciliation.overallHealthy ? 'badge-emerald' : 'badge-crimson'}`} style={{ fontSize: '0.84rem', padding: '0.35rem 0.8rem' }}>
+                {reconciliation.overallHealthy
+                  ? 'ALL ACCOUNTS RECONCILED (0 DISCREPANCIES)'
+                  : `${reconciliation.totalDiscrepancies} DISCREPANCIES DETECTED`}
+              </span>
+            )}
+            <button
+              onClick={() => fetchReconciliation(reconPage)}
+              disabled={reconLoading}
+              className="btn btn-secondary btn-sm"
+              title="Refresh Reconciliation Report"
+            >
+              <RefreshCw size={13} className={reconLoading ? 'spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {reconError && (
+          <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '10px', padding: '0.85rem 1.1rem', color: '#be123c', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+            <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '0.86rem', fontWeight: 600 }}>{reconError}</span>
+          </div>
+        )}
+
+        {reconLoading && !reconciliation ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+            Calculating account reconciliations...
+          </div>
+        ) : !reconciliation || reconciliation.accounts.content.length === 0 ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '10px' }}>
+            No accounts found for reconciliation.
+          </div>
+        ) : (
+          <div>
+            <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ padding: '0.75rem 1rem' }}>Account Details</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Classification</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Stored Balance</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Ledger Entries Sum</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Difference (Δ)</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Reconciliation Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reconciliation.accounts.content.map((acc) => (
+                    <tr
+                      key={acc.accountId}
+                      style={{
+                        borderBottom: '1px solid #f1f5f9',
+                        background: acc.reconciled ? '#ffffff' : '#fff1f2',
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{acc.accountName}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#64748b' }}>
+                          {acc.accountId}
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className={`badge ${acc.isSystemAccount ? 'badge-violet' : 'badge-cyan'}`}>
+                          {acc.accountType}
+                        </span>
+                        {acc.status === 'FROZEN' && (
+                          <span className="badge badge-amber" style={{ marginLeft: '0.35rem' }}>
+                            FROZEN
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                        {formatINR(acc.storedBalance)}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                        {formatINR(acc.entriesSum)}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 700, color: acc.difference === 0 ? '#059669' : '#dc2626' }}>
+                        {acc.difference === 0 ? '₹0.00' : `${acc.difference > 0 ? '+' : ''}${formatINR(acc.difference)}`}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                        <span className={`badge ${acc.reconciled ? 'badge-emerald' : 'badge-crimson'}`} style={{ padding: '0.3rem 0.65rem' }}>
+                          {acc.reconciled ? 'RECONCILED' : 'DISCREPANCY'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {reconciliation.accounts.totalPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.8rem', fontSize: '0.82rem', color: '#64748b' }}>
+                <div>
+                  Showing Page <strong>{reconciliation.accounts.page + 1}</strong> of <strong>{reconciliation.accounts.totalPages}</strong> ({reconciliation.accounts.totalElements} accounts total)
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button
+                    onClick={() => fetchReconciliation(reconPage - 1)}
+                    disabled={reconPage <= 0 || reconLoading}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    <ChevronLeft size={14} /> Previous
+                  </button>
+                  <button
+                    onClick={() => fetchReconciliation(reconPage + 1)}
+                    disabled={reconPage >= reconciliation.accounts.totalPages - 1 || reconLoading}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    Next <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Feature 1: AUDITOR Transfer Trace & Forensic Search */}

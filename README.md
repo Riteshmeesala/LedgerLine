@@ -190,6 +190,7 @@ Derived strictly from real test executions during development:
 | **IDOR Protection** | **Verified** | Foreign accounts return 404 Not Found, never 403 Forbidden. |
 | **JWT Stateless Security** | **Verified** | Signatures, expiration, and role claims verified; invalid or malformed tokens fail closed with 401. |
 | **Statement Reconciliation** | **Verified** | Statements reconcile: $\text{Closing} = \text{Opening} + \sum \text{Entries}$. |
+| **Auditor Account Reconciliation** | **Verified** | `GET /api/ledger/reconciliation` audits stored balances vs discrete sums of ledger entries per account. Flags discrepancies, labels SYSTEM/CUSTOMER accounts, and caps page size at 100. Restricted to `AUDITOR` and `ADMIN`. |
 | **Auditor Transfer Forensic Trace** | **Verified** | `GET /api/audit/transfers/{id}` returns transfer, bilateral entries with balances after, and linked SHA-256 audit blocks. Restricted to `AUDITOR` and `ADMIN`; 404 for unknown, 403 for holder. |
 | **Frozen Account Rejection** | **Verified** | Transfers or withdrawals on frozen accounts fail with HTTP `422 Unprocessable Entity` (`Illegal State`), preventing money movement during administrative investigations. |
 | **Rate Limiting & Lockout** | **Verified** | 5 consecutive bad passwords lock account for 15 minutes; registration rate-limited. |

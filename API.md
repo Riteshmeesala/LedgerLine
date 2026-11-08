@@ -342,6 +342,57 @@ curl -X GET http://localhost:8080/api/ledger/conservation \
 
 ---
 
+### 4.3 Account Reconciliation Audit (`GET /api/ledger/reconciliation`)
+Audits individual accounts, verifying that every cached `storedBalance` exactly matches the historical sum of its `ledger_entries` (`entriesSum`). Labels `SYSTEM` and `CUSTOMER` accounts. Restricted to `AUDITOR` and `ADMIN`. Pagination strictly capped at size 100.
+
+```bash
+curl -X GET "http://localhost:8080/api/ledger/reconciliation?page=0&size=20" \
+  -H "Authorization: Bearer <AUDITOR_TOKEN>"
+```
+
+**Response (HTTP 200 OK - Fully Reconciled)**:
+```json
+{
+  "accounts": {
+    "content": [
+      {
+        "accountId": "a0000000-0000-0000-0000-000000000001",
+        "accountName": "CASH_IN_OUT",
+        "accountType": "SYSTEM",
+        "ownerId": null,
+        "status": "ACTIVE",
+        "storedBalance": -50000,
+        "entriesSum": -50000,
+        "difference": 0,
+        "reconciled": true,
+        "isSystemAccount": true
+      },
+      {
+        "accountId": "11111111-1111-1111-1111-111111111111",
+        "accountName": "Checking Primary",
+        "accountType": "CUSTOMER",
+        "ownerId": "c56a4180-65aa-42ec-a945-5fd21dec0538",
+        "status": "ACTIVE",
+        "storedBalance": 50000,
+        "entriesSum": 50000,
+        "difference": 0,
+        "reconciled": true,
+        "isSystemAccount": false
+      }
+    ],
+    "page": 0,
+    "size": 20,
+    "totalElements": 2,
+    "totalPages": 1
+  },
+  "overallHealthy": true,
+  "totalDiscrepancies": 0,
+  "generatedAt": "2026-11-08T16:45:00Z"
+}
+```
+
+---
+
 ## 5. Audit Trail & Cryptographic Verification
 
 ### 5.1 List Audit Log (`GET /api/audit`)

@@ -398,4 +398,84 @@ public class AuditAndStatementsSecurityTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.status").value(422));
     }
+
+    @Test
+    @DisplayName("Feature 2: Reconciliation report lists accounts, stored balance, entries sum, difference, and system account")
+    void reconciliationReportSucceedsForAuditorAndAdminWithSystemAccounts() throws Exception {
+        // Perform a deposit
+        mockMvc.perform(post("/api/accounts/{id}/deposits", accountId)
+                        .header("Authorization", "Bearer " + holderToken)
+                        .header("Idempotency-Key", "recon-dep-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountMinor\": 15000}"))
+                .andExpect(status().isOk());
+
+        // AUDITOR calls reconciliation report
+        mockMvc.perform(get("/api/ledger/reconciliation")
+                        .header("Authorization", "Bearer " + auditorToken)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.overallHealthy").value(true))
+                .andExpect(jsonPath("$.totalDiscrepancies").value(0))
+                .andExpect(jsonPath("$.accounts.content").isArray())
+                .andExpect(jsonPath("$.accounts.content", not(empty())))
+                // Verify SYSTEM account is present and labelled
+                .andExpect(jsonPath("$.accounts.content[?(@.accountType == 'SYSTEM')].isSystemAccount").value(hasItem(true)))
+                // Verify all uncorrupted accounts have difference == 0 and reconciled == true
+                .andExpect(jsonPath("$.accounts.content[?(@.accountId == '" + accountId + "')].storedBalance").value(hasItem(15000)))
+                .andExpect(jsonPath("$.accounts.content[?(@.accountId == '" + accountId + "')].entriesSum").value(hasItem(15000)))
+                .andExpect(jsonPath("$.accounts.content[?(@.accountId == '" + accountId + "')].difference").value(hasItem(0)))
+                .andExpect(jsonPath("$.accounts.content[?(@.accountId == '" + accountId + "')].reconciled").value(hasItem(true)));
+
+        // ADMIN also has access
+        mockMvc.perform(get("/api/ledger/reconciliation")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.overallHealthy").value(true));
+    }
+
+    @Test
+    @DisplayName("Feature 2: Reconciliation flags account discrepancy if balance is tampered out-of-band")
+    void reconciliationReportDetectsTamperedBalanceDiscrepancy() throws Exception {
+        // Create an unjournaled balance discrepancy
+        jdbcTemplate.update("UPDATE accounts SET balance = balance + 7777 WHERE id = ?", accountId);
+
+        mockMvc.perform(get("/api/ledger/reconciliation")
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.overallHealthy").value(false))
+                .andExpect(jsonPath("$.totalDiscrepancies").value(greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.accounts.content[?(@.accountId == '" + accountId + "')].difference").value(hasItem(7777)))
+                .andExpect(jsonPath("$.accounts.content[?(@.accountId == '" + accountId + "')].reconciled").value(hasItem(false)));
+    }
+
+    @Test
+    @DisplayName("Feature 2 Security: HOLDER role is rejected with 403 Forbidden on reconciliation report")
+    void reconciliationReportReturns403ForHolderRole() throws Exception {
+        mockMvc.perform(get("/api/ledger/reconciliation")
+                        .header("Authorization", "Bearer " + holderToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.title").value("Forbidden"));
+    }
+
+    @Test
+    @DisplayName("Feature 2 Security: Unauthenticated request is rejected with 401 Unauthorized on reconciliation report")
+    void reconciliationReportReturns401ForUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/ledger/reconciliation"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"));
+    }
+
+    @Test
+    @DisplayName("Feature 2 Constraint: Pagination size is strictly capped at max 100")
+    void reconciliationReportPaginationIsCappedAt100() throws Exception {
+        mockMvc.perform(get("/api/ledger/reconciliation")
+                        .header("Authorization", "Bearer " + auditorToken)
+                        .param("size", "500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accounts.size").value(100));
+    }
 }
