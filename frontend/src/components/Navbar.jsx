@@ -6,8 +6,10 @@ import { ShieldCheck, LogOut, FileText, Activity, Users, Wallet, Menu, X } from 
 /**
  * Navigation Bar Component.
  *
- * Fully responsive for both laptops and mobile smartphones.
- * Features desktop navigation tabs and an intuitive mobile hamburger drawer.
+ * Tailored for all 3 stakeholders:
+ * 1. Customer (Account Holder) -> /dashboard, /statements
+ * 2. Inspector (Compliance Auditor) -> /auditor
+ * 3. Operator (System Administrator) -> /admin, /auditor, /dashboard
  */
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -23,8 +25,15 @@ export default function Navbar() {
   if (!user) return null;
 
   const isActive = (path) => location.pathname === path;
-
   const closeMenu = () => setMobileMenuOpen(false);
+
+  const homePath = user.role === 'AUDITOR' ? '/auditor' : user.role === 'ADMIN' ? '/admin' : '/dashboard';
+
+  const roleLabel = user.role === 'ADMIN' 
+    ? 'Operator (Admin)' 
+    : user.role === 'AUDITOR' 
+    ? 'Inspector (Auditor)' 
+    : 'Customer';
 
   return (
     <header
@@ -49,7 +58,7 @@ export default function Navbar() {
       >
         {/* Brand Logo */}
         <Link
-          to="/dashboard"
+          to={homePath}
           onClick={closeMenu}
           style={{
             display: 'flex',
@@ -93,56 +102,16 @@ export default function Navbar() {
 
         {/* Desktop Navigation Links */}
         <div className="desktop-only" style={{ alignItems: 'center', gap: '0.4rem' }}>
-          <Link
-            to="/dashboard"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              color: isActive('/dashboard') ? '#1d4ed8' : '#475569',
-              background: isActive('/dashboard') ? '#eff6ff' : 'transparent',
-              border: isActive('/dashboard') ? '1px solid #bfdbfe' : '1px solid transparent',
-              padding: '0.45rem 0.85rem',
-              borderRadius: '8px',
-              textDecoration: 'none',
-              fontSize: '0.86rem',
-              fontWeight: 600,
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <Wallet size={16} /> My Accounts
-          </Link>
-
-          <Link
-            to="/statements"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              color: isActive('/statements') ? '#1d4ed8' : '#475569',
-              background: isActive('/statements') ? '#eff6ff' : 'transparent',
-              border: isActive('/statements') ? '1px solid #bfdbfe' : '1px solid transparent',
-              padding: '0.45rem 0.85rem',
-              borderRadius: '8px',
-              textDecoration: 'none',
-              fontSize: '0.86rem',
-              fontWeight: 600,
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <FileText size={16} /> Statements
-          </Link>
-
-          {(user.role === 'AUDITOR' || user.role === 'ADMIN') && (
+          {(user.role === 'HOLDER' || user.role === 'ADMIN') && (
             <Link
-              to="/auditor"
+              to="/dashboard"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.45rem',
-                color: isActive('/auditor') ? '#1d4ed8' : '#475569',
-                background: isActive('/auditor') ? '#eff6ff' : 'transparent',
-                border: isActive('/auditor') ? '1px solid #bfdbfe' : '1px solid transparent',
+                color: isActive('/dashboard') ? '#1d4ed8' : '#475569',
+                background: isActive('/dashboard') ? '#eff6ff' : 'transparent',
+                border: isActive('/dashboard') ? '1px solid #bfdbfe' : '1px solid transparent',
                 padding: '0.45rem 0.85rem',
                 borderRadius: '8px',
                 textDecoration: 'none',
@@ -151,7 +120,51 @@ export default function Navbar() {
                 transition: 'all 0.15s ease'
               }}
             >
-              <Activity size={16} /> Audit & Integrity
+              <Wallet size={16} /> My Accounts
+            </Link>
+          )}
+
+          {(user.role === 'HOLDER' || user.role === 'ADMIN') && (
+            <Link
+              to="/statements"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                color: isActive('/statements') ? '#1d4ed8' : '#475569',
+                background: isActive('/statements') ? '#eff6ff' : 'transparent',
+                border: isActive('/statements') ? '1px solid #bfdbfe' : '1px solid transparent',
+                padding: '0.45rem 0.85rem',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontSize: '0.86rem',
+                fontWeight: 600,
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <FileText size={16} /> Statements
+            </Link>
+          )}
+
+          {(user.role === 'AUDITOR' || user.role === 'ADMIN') && (
+            <Link
+              to="/auditor"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                color: isActive('/auditor') ? '#0284c7' : '#475569',
+                background: isActive('/auditor') ? '#f0f9ff' : 'transparent',
+                border: isActive('/auditor') ? '1px solid #bae6fd' : '1px solid transparent',
+                padding: '0.45rem 0.85rem',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontSize: '0.86rem',
+                fontWeight: 600,
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Activity size={16} /> Inspector (Audit & Conservation)
             </Link>
           )}
 
@@ -173,7 +186,7 @@ export default function Navbar() {
                 transition: 'all 0.15s ease'
               }}
             >
-              <Users size={16} /> Admin Panel
+              <Users size={16} /> Operator (Admin Console)
             </Link>
           )}
         </div>
@@ -203,7 +216,7 @@ export default function Navbar() {
               {user.email}
             </div>
             <span className={`badge ${user.role === 'ADMIN' ? 'badge-violet' : user.role === 'AUDITOR' ? 'badge-cyan' : 'badge-emerald'}`} style={{ fontSize: '0.7rem' }}>
-              {user.role === 'HOLDER' ? 'Customer' : user.role}
+              {roleLabel}
             </span>
           </div>
 
@@ -221,7 +234,7 @@ export default function Navbar() {
         {/* Mobile Hamburger Toggle */}
         <div className="mobile-only" style={{ alignItems: 'center', gap: '0.5rem' }}>
           <span className={`badge ${user.role === 'ADMIN' ? 'badge-violet' : user.role === 'AUDITOR' ? 'badge-cyan' : 'badge-emerald'}`} style={{ fontSize: '0.72rem' }}>
-            {user.role === 'HOLDER' ? 'Customer' : user.role}
+            {roleLabel}
           </span>
           <button
             type="button"
@@ -271,7 +284,7 @@ export default function Navbar() {
             }}
           >
             <div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Signed in as:</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Role: <strong>{roleLabel}</strong></div>
               <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a', wordBreak: 'break-all' }}>
                 {user.email}
               </div>
@@ -295,45 +308,49 @@ export default function Navbar() {
             </div>
           </div>
 
-          <Link
-            to="/dashboard"
-            onClick={closeMenu}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.65rem',
-              color: isActive('/dashboard') ? '#1d4ed8' : '#334155',
-              background: isActive('/dashboard') ? '#eff6ff' : '#ffffff',
-              border: isActive('/dashboard') ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
-              padding: '0.75rem 1rem',
-              borderRadius: '10px',
-              textDecoration: 'none',
-              fontSize: '0.92rem',
-              fontWeight: 600
-            }}
-          >
-            <Wallet size={18} style={{ color: '#2563eb' }} /> My Accounts
-          </Link>
+          {(user.role === 'HOLDER' || user.role === 'ADMIN') && (
+            <Link
+              to="/dashboard"
+              onClick={closeMenu}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+                color: isActive('/dashboard') ? '#1d4ed8' : '#334155',
+                background: isActive('/dashboard') ? '#eff6ff' : '#ffffff',
+                border: isActive('/dashboard') ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                padding: '0.75rem 1rem',
+                borderRadius: '10px',
+                textDecoration: 'none',
+                fontSize: '0.92rem',
+                fontWeight: 600
+              }}
+            >
+              <Wallet size={18} style={{ color: '#2563eb' }} /> My Accounts
+            </Link>
+          )}
 
-          <Link
-            to="/statements"
-            onClick={closeMenu}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.65rem',
-              color: isActive('/statements') ? '#1d4ed8' : '#334155',
-              background: isActive('/statements') ? '#eff6ff' : '#ffffff',
-              border: isActive('/statements') ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
-              padding: '0.75rem 1rem',
-              borderRadius: '10px',
-              textDecoration: 'none',
-              fontSize: '0.92rem',
-              fontWeight: 600
-            }}
-          >
-            <FileText size={18} style={{ color: '#2563eb' }} /> Statements & History
-          </Link>
+          {(user.role === 'HOLDER' || user.role === 'ADMIN') && (
+            <Link
+              to="/statements"
+              onClick={closeMenu}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+                color: isActive('/statements') ? '#1d4ed8' : '#334155',
+                background: isActive('/statements') ? '#eff6ff' : '#ffffff',
+                border: isActive('/statements') ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                padding: '0.75rem 1rem',
+                borderRadius: '10px',
+                textDecoration: 'none',
+                fontSize: '0.92rem',
+                fontWeight: 600
+              }}
+            >
+              <FileText size={18} style={{ color: '#2563eb' }} /> Statements & History
+            </Link>
+          )}
 
           {(user.role === 'AUDITOR' || user.role === 'ADMIN') && (
             <Link
@@ -343,9 +360,9 @@ export default function Navbar() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.65rem',
-                color: isActive('/auditor') ? '#1d4ed8' : '#334155',
-                background: isActive('/auditor') ? '#eff6ff' : '#ffffff',
-                border: isActive('/auditor') ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                color: isActive('/auditor') ? '#0284c7' : '#334155',
+                background: isActive('/auditor') ? '#f0f9ff' : '#ffffff',
+                border: isActive('/auditor') ? '1px solid #bae6fd' : '1px solid #e2e8f0',
                 padding: '0.75rem 1rem',
                 borderRadius: '10px',
                 textDecoration: 'none',
@@ -353,7 +370,7 @@ export default function Navbar() {
                 fontWeight: 600
               }}
             >
-              <Activity size={18} style={{ color: '#059669' }} /> Audit & Integrity
+              <Activity size={18} style={{ color: '#0284c7' }} /> Inspector (Audit & Conservation)
             </Link>
           )}
 
@@ -375,7 +392,7 @@ export default function Navbar() {
                 fontWeight: 600
               }}
             >
-              <Users size={18} style={{ color: '#7c3aed' }} /> Admin Console
+              <Users size={18} style={{ color: '#7c3aed' }} /> Operator (Admin Console)
             </Link>
           )}
 
