@@ -96,8 +96,9 @@ export async function apiClient(endpoint, options = {}) {
     ...(options.headers || {})
   };
 
-  if (inMemoryToken) {
-    headers['Authorization'] = `Bearer ${inMemoryToken}`;
+  const activeToken = getToken();
+  if (activeToken) {
+    headers['Authorization'] = `Bearer ${activeToken}`;
   }
 
   const config = {
@@ -144,11 +145,12 @@ export async function apiClient(endpoint, options = {}) {
     }
   }
 
-  // Automatic retry once for safe read operations during free-tier cloud wake-ups (502/503/504)
-  const isReadOperation = !options.method || options.method.toUpperCase() === 'GET';
-  if (isReadOperation && (response.status >= 502 && response.status <= 504) && !options._isRetry) {
+  // Automatic retry for safe read operations and idempotent auth during free-tier cloud wake-ups (502/503/504)
+  const isRetryable = (!options.method || options.method.toUpperCase() === 'GET' || cleanEndpoint === '/api/auth/login');
+  if (isRetryable && (response.status >= 502 && response.status <= 504) && (options._retryCount || 0) < 2) {
+    const nextRetry = (options._retryCount || 0) + 1;
     await new Promise(r => setTimeout(r, 2500));
-    return apiClient(endpoint, { ...options, _isRetry: true });
+    return apiClient(endpoint, { ...options, _retryCount: nextRetry });
   }
 
   const isReplayed = response.headers.get('Idempotent-Replayed') === 'true';
@@ -164,10 +166,10 @@ export async function apiClient(endpoint, options = {}) {
   } else {
     try {
       const text = await response.text();
-      if (text && !text.includes('<!DOCTYPE') && !text.includes('<html')) {
-        data = { message: text };
-      } else if (response.status >= 502 && response.status <= 504) {
+      if (response.status >= 502 && response.status <= 504) {
         data = { message: 'Cloud backend is waking up from idle (~20-30s on free tier). Please tap Retry in a moment.' };
+      } else if (text && !text.includes('<!DOCTYPE') && !text.includes('<html')) {
+        data = { message: text };
       } else {
         data = { message: `Server returned status ${response.status}` };
       }

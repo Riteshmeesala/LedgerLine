@@ -81,5 +81,31 @@ describe('Role-Based ProtectedRoute & Navigation', () => {
     expect(screen.getByText('Holder Dashboard Fallback')).toBeInTheDocument();
     expect(screen.queryByText('Admin Secret Panel')).not.toBeInTheDocument();
   });
+
+  it('redirects ADMIN to /admin when accessing HOLDER /dashboard', () => {
+    vi.spyOn(AuthContext, 'useAuth').mockReturnValue({
+      user: { id: 'admin-1', email: 'admin@test.local', role: 'ADMIN' },
+      isAuthenticated: true
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route path="/admin" element={<div>Admin Console Fallback</div>} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['HOLDER']}>
+                <div>Holder Dashboard</div>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Admin Console Fallback')).toBeInTheDocument();
+    expect(screen.queryByText('Holder Dashboard')).not.toBeInTheDocument();
+  });
 });
 

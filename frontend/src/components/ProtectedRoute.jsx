@@ -10,7 +10,8 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />;
+    const roleHome = user.role === 'ADMIN' ? '/admin' : user.role === 'AUDITOR' ? '/auditor' : '/dashboard';
+    return <Navigate to={roleHome} replace />;
   }
 
   return children;

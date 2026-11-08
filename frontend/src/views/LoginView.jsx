@@ -65,15 +65,11 @@ export default function LoginView() {
 
   React.useEffect(() => {
     if (user) {
-      if (user.role === 'AUDITOR') {
-        navigate('/auditor', { replace: true });
-      } else if (user.role === 'ADMIN') {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      const target = user.role === 'ADMIN' ? '/admin' : user.role === 'AUDITOR' ? '/auditor' : '/dashboard';
+      navigate(target, { replace: true });
     }
-  }, [user, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLoginSubmit = async (loginEmail, loginPass, targetPath = null) => {
     setError(null);
@@ -88,15 +84,8 @@ export default function LoginView() {
     try {
       const res = await login(loginEmail, loginPass);
       clearTimeout(timer);
-      if (targetPath) {
-        navigate(targetPath);
-      } else if (res.role === 'AUDITOR') {
-        navigate('/auditor');
-      } else if (res.role === 'ADMIN') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      const destination = targetPath || (res.role === 'ADMIN' ? '/admin' : res.role === 'AUDITOR' ? '/auditor' : '/dashboard');
+      navigate(destination, { replace: true });
     } catch (err) {
       clearTimeout(timer);
       setError(err.detail || err.message || 'Login failed.');

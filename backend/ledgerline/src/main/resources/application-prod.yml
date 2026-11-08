@@ -28,7 +28,7 @@ server:
 ledgerline:
   jwt:
     secret: ${JWT_SECRET}
-    expiration-minutes: ${JWT_EXPIRATION_MINUTES:15}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
   cors:
     allowed-origin: ${FRONTEND_ORIGIN:https://ledger-line-orpin.vercel.app}
   limits:
