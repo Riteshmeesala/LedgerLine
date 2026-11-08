@@ -43,8 +43,8 @@ USER ledgerline
 EXPOSE 8080
 
 # Health check probing Spring Boot /api/health endpoint
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:8080/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+  CMD curl -f http://localhost:${PORT:-8080}/api/health || exit 1
 
 # Launch application with /dev/./urandom entropy
 ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-Dspring.profiles.active=prod", "-jar", "/app/app.jar"]

@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
       });
       setToken(res.token);
       setUser({
-        id: res.id,
+        id: res.id || res.userId,
         email: res.email,
         role: res.role,
         enabled: true
@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
       });
       setToken(res.token);
       setUser({
-        id: res.id,
+        id: res.id || res.userId,
         email: res.email,
         role: res.role,
         enabled: true
