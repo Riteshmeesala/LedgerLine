@@ -25,6 +25,9 @@ export default function AuditorDashboard() {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
+  const [outcomeFilter, setOutcomeFilter] = useState('ALL');
+  const [actorIdFilter, setActorIdFilter] = useState('');
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [copiedHash, setCopiedHash] = useState(null);
 
   // Feature 1: Transfer Trace State
@@ -90,10 +93,19 @@ export default function AuditorDashboard() {
     }
   };
 
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = async (customParams = {}) => {
     setLogsLoading(true);
     try {
-      const data = await apiClient('/api/audit?page=0&size=50');
+      const activeAction = customParams.action !== undefined ? customParams.action : actionFilter;
+      const activeOutcome = customParams.outcome !== undefined ? customParams.outcome : outcomeFilter;
+      const activeActorId = customParams.actorId !== undefined ? customParams.actorId : actorIdFilter;
+
+      const params = new URLSearchParams({ page: '0', size: '50' });
+      if (activeAction && activeAction !== 'ALL') params.append('action', activeAction);
+      if (activeOutcome && activeOutcome !== 'ALL') params.append('outcome', activeOutcome);
+      if (activeActorId && activeActorId.trim()) params.append('actorId', activeActorId.trim());
+
+      const data = await apiClient(`/api/audit?${params.toString()}`);
       const sorted = [...(data.content || [])].reverse();
       setAuditLogs(sorted);
     } catch (err) {
@@ -101,6 +113,39 @@ export default function AuditorDashboard() {
     } finally {
       setLogsLoading(false);
     }
+  };
+
+  const handleExportCsv = async () => {
+    setExportingCsv(true);
+    try {
+      const params = new URLSearchParams({ limit: '1000' });
+      if (actionFilter && actionFilter !== 'ALL') params.append('action', actionFilter);
+      if (outcomeFilter && outcomeFilter !== 'ALL') params.append('outcome', outcomeFilter);
+      if (actorIdFilter && actorIdFilter.trim()) params.append('actorId', actorIdFilter.trim());
+
+      const res = await apiClient(`/api/audit/export?${params.toString()}`);
+      const csvText = typeof res === 'string' ? res : (res?.message || '');
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.detail || err.message || 'Failed to export CSV');
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
+  const handleResetAuditFilters = () => {
+    setActionFilter('ALL');
+    setOutcomeFilter('ALL');
+    setActorIdFilter('');
+    fetchAuditLogs({ action: 'ALL', outcome: 'ALL', actorId: '' });
   };
 
   const verifyAuditChain = async () => {
@@ -684,6 +729,101 @@ export default function AuditorDashboard() {
           <span className="hud-tag violet">
             Tamper-Evident Trail
           </span>
+        </div>
+
+        {/* Feature 3: Security Event Filters & CSV Export Toolbar */}
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '0.88rem', color: '#1e293b' }}>
+              <Filter size={16} style={{ color: '#2563eb' }} /> Security Event Filters
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleResetAuditFilters}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}
+              >
+                Reset Filters
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                disabled={exportingCsv || logsLoading}
+                className="btn btn-primary btn-sm"
+                style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#059669', borderColor: '#059669' }}
+              >
+                <Download size={14} /> {exportingCsv ? 'Exporting...' : 'Export Sanitized CSV'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '0.75rem' }}>
+            {/* Action Filter */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.3rem' }}>Action Type</label>
+              <select
+                value={actionFilter}
+                onChange={(e) => {
+                  setActionFilter(e.target.value);
+                  fetchAuditLogs({ action: e.target.value });
+                }}
+                className="input-field"
+                style={{ padding: '0.45rem 0.75rem', fontSize: '0.82rem' }}
+              >
+                <option value="ALL">All Actions</option>
+                <option value="DEPOSIT">DEPOSIT</option>
+                <option value="WITHDRAW">WITHDRAW</option>
+                <option value="WITHDRAWAL">WITHDRAWAL</option>
+                <option value="TRANSFER">TRANSFER</option>
+                <option value="TRANSFER_INITIATED">TRANSFER_INITIATED</option>
+                <option value="TRANSFER_SETTLED">TRANSFER_SETTLED</option>
+                <option value="FREEZE_ACCOUNT">FREEZE_ACCOUNT</option>
+                <option value="UNFREEZE_ACCOUNT">UNFREEZE_ACCOUNT</option>
+                <option value="ACCESS_DENIED">ACCESS_DENIED</option>
+                <option value="AUTHENTICATION_FAILED">AUTHENTICATION_FAILED</option>
+                <option value="ILLEGAL_ARGUMENT">ILLEGAL_ARGUMENT</option>
+                <option value="INSUFFICIENT_FUNDS">INSUFFICIENT_FUNDS</option>
+                <option value="RATE_LIMIT_EXCEEDED">RATE_LIMIT_EXCEEDED</option>
+              </select>
+            </div>
+
+            {/* Outcome Filter */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.3rem' }}>Outcome Status</label>
+              <select
+                value={outcomeFilter}
+                onChange={(e) => {
+                  setOutcomeFilter(e.target.value);
+                  fetchAuditLogs({ outcome: e.target.value });
+                }}
+                className="input-field"
+                style={{ padding: '0.45rem 0.75rem', fontSize: '0.82rem' }}
+              >
+                <option value="ALL">All Outcomes</option>
+                <option value="SUCCESS">SUCCESS only</option>
+                <option value="FAILED">FAILED / DENIED only</option>
+              </select>
+            </div>
+
+            {/* Actor ID Filter */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.3rem' }}>Actor UUID</label>
+              <input
+                type="text"
+                placeholder="Filter by Actor UUID..."
+                value={actorIdFilter}
+                onChange={(e) => setActorIdFilter(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    fetchAuditLogs({ actorId: actorIdFilter });
+                  }
+                }}
+                className="input-field"
+                style={{ padding: '0.45rem 0.75rem', fontSize: '0.82rem', fontFamily: 'monospace' }}
+              />
+            </div>
+          </div>
         </div>
 
         {logsLoading ? (

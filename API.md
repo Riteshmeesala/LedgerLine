@@ -396,10 +396,19 @@ curl -X GET "http://localhost:8080/api/ledger/reconciliation?page=0&size=20" \
 ## 5. Audit Trail & Cryptographic Verification
 
 ### 5.1 List Audit Log (`GET /api/audit`)
-Retrieves paginated audit log entries with SHA-256 block hashes (`AUDITOR` or `ADMIN`).
+Retrieves paginated, filtered audit log entries with SHA-256 block hashes (`AUDITOR` or `ADMIN`).
+
+**Query Parameters**:
+- `action` (optional string): Filter by action name (e.g. `DEPOSIT`, `WITHDRAW`, `TRANSFER`, `ACCESS_DENIED`, `ILLEGAL_ARGUMENT`).
+- `outcome` (optional string): Filter by outcome: `SUCCESS` or `FAILED` (includes denied, rate-limited, validation errors).
+- `actorId` (optional UUID): Filter by actor's unique UUID.
+- `from` (optional ISO 8601 Instant): Filter events created on or after timestamp.
+- `to` (optional ISO 8601 Instant): Filter events created on or before timestamp.
+- `page` (optional integer, default 0): Page index.
+- `size` (optional integer, default 20, max 100): Page size.
 
 ```bash
-curl -X GET "http://localhost:8080/api/audit?page=0&size=20" \
+curl -X GET "http://localhost:8080/api/audit?action=TRANSFER&outcome=SUCCESS&page=0&size=20" \
   -H "Authorization: Bearer <AUDITOR_TOKEN>"
 ```
 
@@ -524,6 +533,31 @@ curl -X GET http://localhost:8080/api/audit/transfers/a1b2c3d4-e5f6-7a8b-9c0d-1e
   "status": 404,
   "detail": "Transfer not found: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
 }
+```
+
+---
+
+### 5.4 Export Audit Logs CSV (`GET /api/audit/export`)
+Streams sanitized, RFC 4180-compliant CSV representation of audit events. Hard-capped at 1,000 rows. Protects against CSV formula injection by prepending `'` to cells starting with `=`, `+`, `-`, `@`, `\t`, or `\r`. Restricted to `AUDITOR` and `ADMIN`.
+
+**Query Parameters**:
+- `action` (optional string): Filter by action name.
+- `outcome` (optional string): Filter by outcome (`SUCCESS`, `FAILED`).
+- `actorId` (optional UUID): Filter by actor's unique UUID.
+- `from` (optional ISO 8601 Instant): Filter events created on or after timestamp.
+- `to` (optional ISO 8601 Instant): Filter events created on or before timestamp.
+- `limit` (optional integer, default 1000, max 1000): Safe export cap.
+
+```bash
+curl -X GET "http://localhost:8080/api/audit/export?action=DEPOSIT&limit=1000" \
+  -H "Authorization: Bearer <AUDITOR_TOKEN>" \
+  -o audit_export.csv
+```
+
+**Response (HTTP 200 OK, Content-Type: `text/csv; charset=UTF-8`)**:
+```csv
+Seq,Actor ID,Actor Role,Action,Entity Type,Entity ID,Payload,IP,Prev Hash,Hash,Created At
+1,11111111-1111-1111-1111-111111111111,HOLDER,DEPOSIT,TRANSFER,48b28f74-d4b7-4977-b8db-4e78ea9df4cb,"{""amountMinor"":250000}","127.0.0.1",0000000000000000000000000000000000000000000000000000000000000000,e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855,2026-11-07T12:35:10.123Z
 ```
 
 ---

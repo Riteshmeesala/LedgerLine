@@ -193,28 +193,90 @@ public class AuditService {
     }
 
     /**
-     * Returns paginated audit log entries ordered by seq DESC.
+     * Returns paginated audit log entries ordered by seq DESC with optional filtering.
      */
     @Transactional(readOnly = true)
     public PageResponse<AuditLogEntryDto> getAuditLogs(int page, int size) {
+        return getAuditLogs(null, null, null, null, null, page, size);
+    }
+
+    /**
+     * Returns filtered, paginated audit log entries ordered by seq DESC.
+     * Capped at max size 100 per page.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<AuditLogEntryDto> getAuditLogs(
+            String action,
+            String outcome,
+            Instant from,
+            Instant to,
+            UUID actorId,
+            int page,
+            int size) {
         int boundedPage = Math.max(0, page);
         int boundedSize = Math.clamp(size, 1, 100);
         int offset = boundedPage * boundedSize;
 
+        StringBuilder whereSql = new StringBuilder(" WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+
+        if (action != null && !action.isBlank()) {
+            whereSql.append(" AND action = ? ");
+            params.add(action.trim());
+        }
+
+        if (actorId != null) {
+            whereSql.append(" AND actor_id = ? ");
+            params.add(actorId);
+        }
+
+        if (from != null) {
+            whereSql.append(" AND created_at >= ? ");
+            params.add(Timestamp.from(from));
+        }
+
+        if (to != null) {
+            whereSql.append(" AND created_at <= ? ");
+            params.add(Timestamp.from(to));
+        }
+
+        if (outcome != null && !outcome.isBlank()) {
+            String norm = outcome.trim().toUpperCase();
+            if ("FAILED".equals(norm) || "DENIED".equals(norm) || "FAILED_OR_DENIED".equals(norm)) {
+                whereSql.append(" AND (action IN ('ACCESS_DENIED', 'AUTHENTICATION_FAILED', 'RATE_LIMIT_EXCEEDED', 'INSUFFICIENT_FUNDS', " +
+                        "'IDEMPOTENCY_MISMATCH', 'ILLEGAL_STATE', 'ILLEGAL_ARGUMENT', 'TYPE_MISMATCH', 'PAYLOAD_TOO_LARGE', " +
+                        "'INTERNAL_ERROR', 'UNKNOWN_PROPERTY', 'MALFORMED_INPUT', 'VALIDATION_FAILED', 'RESOURCE_NOT_FOUND', 'CONFLICT', 'INVALID_IDEMPOTENCY_KEY') " +
+                        "OR action LIKE '%_FAILED' OR action LIKE '%DENIED%' OR action LIKE '%MISMATCH%' OR action LIKE '%EXCEEDED%' OR action LIKE '%INSUFFICIENT%' " +
+                        "OR payload->>'outcome' = 'FAILED' OR payload->>'outcome' = 'DENIED') ");
+            } else if ("SUCCESS".equals(norm)) {
+                whereSql.append(" AND NOT (action IN ('ACCESS_DENIED', 'AUTHENTICATION_FAILED', 'RATE_LIMIT_EXCEEDED', 'INSUFFICIENT_FUNDS', " +
+                        "'IDEMPOTENCY_MISMATCH', 'ILLEGAL_STATE', 'ILLEGAL_ARGUMENT', 'TYPE_MISMATCH', 'PAYLOAD_TOO_LARGE', " +
+                        "'INTERNAL_ERROR', 'UNKNOWN_PROPERTY', 'MALFORMED_INPUT', 'VALIDATION_FAILED', 'RESOURCE_NOT_FOUND', 'CONFLICT', 'INVALID_IDEMPOTENCY_KEY') " +
+                        "OR action LIKE '%_FAILED' OR action LIKE '%DENIED%' OR action LIKE '%MISMATCH%' OR action LIKE '%EXCEEDED%' OR action LIKE '%INSUFFICIENT%' " +
+                        "OR payload->>'outcome' = 'FAILED' OR payload->>'outcome' = 'DENIED') ");
+            }
+        }
+
+        String countSql = "SELECT COUNT(*) FROM audit_log " + whereSql;
         long totalElements = Optional.ofNullable(
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM audit_log", Long.class)
+                jdbcTemplate.queryForObject(countSql, Long.class, params.toArray())
         ).orElse(0L);
 
         int totalPages = (int) Math.ceil((double) totalElements / boundedSize);
 
+        String selectSql = "SELECT seq, actor_id, actor_role, action, entity_type, entity_id, payload, ip, prev_hash, hash, created_at " +
+                "FROM audit_log " + whereSql + " ORDER BY seq DESC LIMIT ? OFFSET ?";
+        List<Object> queryParams = new ArrayList<>(params);
+        queryParams.add(boundedSize);
+        queryParams.add(offset);
+
         List<AuditLogEntryDto> content = jdbcTemplate.query(
-                "SELECT seq, actor_id, actor_role, action, entity_type, entity_id, payload, ip, prev_hash, hash, created_at " +
-                        "FROM audit_log ORDER BY seq DESC LIMIT ? OFFSET ?",
+                selectSql,
                 (rs, rowNum) -> {
                     long seq = rs.getLong("seq");
-                    UUID actorId = rs.getObject("actor_id", UUID.class);
+                    UUID rowActorId = rs.getObject("actor_id", UUID.class);
                     String actorRole = rs.getString("actor_role");
-                    String action = rs.getString("action");
+                    String rowAction = rs.getString("action");
                     String entityType = rs.getString("entity_type");
                     String entityId = rs.getString("entity_id");
                     String payloadStr = rs.getString("payload");
@@ -234,9 +296,9 @@ public class AuditService {
 
                     return new AuditLogEntryDto(
                             seq,
-                            actorId,
+                            rowActorId,
                             actorRole,
-                            action,
+                            rowAction,
                             entityType,
                             entityId,
                             payloadMap,
@@ -246,11 +308,123 @@ public class AuditService {
                             createdAt
                     );
                 },
-                boundedSize,
-                offset
+                queryParams.toArray()
         );
 
         return new PageResponse<>(content, boundedPage, boundedSize, totalElements, totalPages);
+    }
+
+    /**
+     * Exports matching audit log entries as sanitized CSV.
+     * Capped at safe row limit (max 1000).
+     * Strictly guards against CSV formula injection by prepending apostrophe (')
+     * to any cell starting with =, +, -, @, \t, \r.
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportAuditLogsCsv(
+            String action,
+            String outcome,
+            Instant from,
+            Instant to,
+            UUID actorId,
+            int limit) {
+        int boundedLimit = Math.clamp(limit, 1, 1000);
+
+        StringBuilder whereSql = new StringBuilder(" WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+
+        if (action != null && !action.isBlank()) {
+            whereSql.append(" AND action = ? ");
+            params.add(action.trim());
+        }
+
+        if (actorId != null) {
+            whereSql.append(" AND actor_id = ? ");
+            params.add(actorId);
+        }
+
+        if (from != null) {
+            whereSql.append(" AND created_at >= ? ");
+            params.add(Timestamp.from(from));
+        }
+
+        if (to != null) {
+            whereSql.append(" AND created_at <= ? ");
+            params.add(Timestamp.from(to));
+        }
+
+        if (outcome != null && !outcome.isBlank()) {
+            String norm = outcome.trim().toUpperCase();
+            if ("FAILED".equals(norm) || "DENIED".equals(norm) || "FAILED_OR_DENIED".equals(norm)) {
+                whereSql.append(" AND (action IN ('ACCESS_DENIED', 'AUTHENTICATION_FAILED', 'RATE_LIMIT_EXCEEDED', 'INSUFFICIENT_FUNDS', " +
+                        "'IDEMPOTENCY_MISMATCH', 'ILLEGAL_STATE', 'ILLEGAL_ARGUMENT', 'TYPE_MISMATCH', 'PAYLOAD_TOO_LARGE', " +
+                        "'INTERNAL_ERROR', 'UNKNOWN_PROPERTY', 'MALFORMED_INPUT', 'VALIDATION_FAILED', 'RESOURCE_NOT_FOUND', 'CONFLICT', 'INVALID_IDEMPOTENCY_KEY') " +
+                        "OR action LIKE '%_FAILED' OR action LIKE '%DENIED%' OR action LIKE '%MISMATCH%' OR action LIKE '%EXCEEDED%' OR action LIKE '%INSUFFICIENT%' " +
+                        "OR payload->>'outcome' = 'FAILED' OR payload->>'outcome' = 'DENIED') ");
+            } else if ("SUCCESS".equals(norm)) {
+                whereSql.append(" AND NOT (action IN ('ACCESS_DENIED', 'AUTHENTICATION_FAILED', 'RATE_LIMIT_EXCEEDED', 'INSUFFICIENT_FUNDS', " +
+                        "'IDEMPOTENCY_MISMATCH', 'ILLEGAL_STATE', 'ILLEGAL_ARGUMENT', 'TYPE_MISMATCH', 'PAYLOAD_TOO_LARGE', " +
+                        "'INTERNAL_ERROR', 'UNKNOWN_PROPERTY', 'MALFORMED_INPUT', 'VALIDATION_FAILED', 'RESOURCE_NOT_FOUND', 'CONFLICT', 'INVALID_IDEMPOTENCY_KEY') " +
+                        "OR action LIKE '%_FAILED' OR action LIKE '%DENIED%' OR action LIKE '%MISMATCH%' OR action LIKE '%EXCEEDED%' OR action LIKE '%INSUFFICIENT%') ");
+            }
+        }
+
+        String selectSql = "SELECT seq, actor_id, actor_role, action, entity_type, entity_id, payload, ip, prev_hash, hash, created_at " +
+                "FROM audit_log " + whereSql + " ORDER BY seq DESC LIMIT ?";
+        params.add(boundedLimit);
+
+        StringBuilder csv = new StringBuilder();
+        csv.append("Seq,Actor ID,Actor Role,Action,Entity Type,Entity ID,Payload,IP,Prev Hash,Hash,Created At\n");
+
+        jdbcTemplate.query(
+                selectSql,
+                rs -> {
+                    long seq = rs.getLong("seq");
+                    String rowActorId = rs.getString("actor_id");
+                    String actorRole = rs.getString("actor_role");
+                    String rowAction = rs.getString("action");
+                    String entityType = rs.getString("entity_type");
+                    String entityId = rs.getString("entity_id");
+                    String payload = rs.getString("payload");
+                    String ip = rs.getString("ip");
+                    String prevHash = rs.getString("prev_hash");
+                    String hash = rs.getString("hash");
+                    Timestamp ts = rs.getTimestamp("created_at");
+                    String createdAt = ts != null ? ts.toInstant().toString() : "";
+
+                    csv.append(sanitizeCsvCell(seq)).append(",")
+                            .append(sanitizeCsvCell(rowActorId)).append(",")
+                            .append(sanitizeCsvCell(actorRole)).append(",")
+                            .append(sanitizeCsvCell(rowAction)).append(",")
+                            .append(sanitizeCsvCell(entityType)).append(",")
+                            .append(sanitizeCsvCell(entityId)).append(",")
+                            .append(sanitizeCsvCell(payload)).append(",")
+                            .append(sanitizeCsvCell(ip)).append(",")
+                            .append(sanitizeCsvCell(prevHash)).append(",")
+                            .append(sanitizeCsvCell(hash)).append(",")
+                            .append(sanitizeCsvCell(createdAt)).append("\n");
+                },
+                params.toArray()
+        );
+
+        return csv.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    public static String sanitizeCsvCell(Object value) {
+        if (value == null) return "";
+        String str = value.toString();
+        if (str.isEmpty()) return "";
+
+        // Guard against CSV formula injection: =, +, -, @, \t, \r
+        char firstChar = str.charAt(0);
+        if (firstChar == '=' || firstChar == '+' || firstChar == '-' || firstChar == '@' || firstChar == '\t' || firstChar == '\r') {
+            str = "'" + str;
+        }
+
+        if (str.contains(",") || str.contains("\"") || str.contains("\n") || str.contains("\r")) {
+            str = "\"" + str.replace("\"", "\"\"") + "\"";
+        }
+        return str;
     }
 
     /**
