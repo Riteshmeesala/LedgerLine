@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { formatINR, parseINRToMinorUnits } from '../utils/money';
 import { generateIdempotencyKey } from '../utils/idempotency';
 import { 
   Wallet, Plus, ArrowUpRight, ArrowDownLeft, Send, RefreshCw, 
-  CheckCircle2, AlertTriangle, Clock, Copy, Check, ShieldCheck
+  CheckCircle2, AlertTriangle, Clock, Copy, Check, ShieldCheck,
+  Eye, EyeOff, Download, Share2, CreditCard, Sparkles, Filter, Search
 } from 'lucide-react';
 
 export default function HolderDashboard() {
@@ -13,7 +14,7 @@ export default function HolderDashboard() {
   const [error, setError] = useState(null);
 
   // Modal State
-  const [actionType, setActionType] = useState(null); // 'DEPOSIT' | 'WITHDRAW' | 'TRANSFER' | 'CREATE_ACCOUNT'
+  const [actionType, setActionType] = useState(null); // 'DEPOSIT' | 'WITHDRAW' | 'TRANSFER' | 'CREATE_ACCOUNT' | 'SHARE_ID' | 'TX_DETAILS'
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [targetAccountId, setTargetAccountId] = useState('');
   const [amountRupees, setAmountRupees] = useState('');
@@ -21,6 +22,14 @@ export default function HolderDashboard() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [actionSuccess, setActionSuccess] = useState(null);
+  const [selectedTx, setSelectedTx] = useState(null);
+
+  // Eye toggle for privacy
+  const [showBalance, setShowBalance] = useState(true);
+
+  // Search & Filter for transactions
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activityFilter, setActivityFilter] = useState('ALL'); // 'ALL' | 'CREDIT' | 'DEBIT'
 
   // Idempotency State per Intent
   const [currentIdempotencyKey, setCurrentIdempotencyKey] = useState('');
@@ -41,6 +50,10 @@ export default function HolderDashboard() {
       setAccounts(data);
       if (data.length > 0 && !selectedAccount) {
         setSelectedAccount(data[0]);
+      } else if (data.length > 0 && selectedAccount) {
+        // sync currently selected account balance
+        const updated = data.find(a => a.id === selectedAccount.id);
+        if (updated) setSelectedAccount(updated);
       }
     } catch (err) {
       setError(err.detail || err.message);
@@ -53,7 +66,7 @@ export default function HolderDashboard() {
     if (accounts.length === 0) return;
     try {
       const accId = selectedAccount ? selectedAccount.id : accounts[0].id;
-      const statement = await apiClient(`/api/accounts/${accId}/statement?page=0&size=10`);
+      const statement = await apiClient(`/api/accounts/${accId}/statement?page=0&size=20`);
       setTapeEntries(statement.entries || []);
     } catch (e) {
       // Ignore background ticker errors
@@ -73,13 +86,12 @@ export default function HolderDashboard() {
 
   const openActionModal = (type, acc) => {
     setActionType(type);
-    setSelectedAccount(acc || accounts[0]);
+    setSelectedAccount(acc || selectedAccount || accounts[0]);
     setAmountRupees('');
     setTargetAccountId('');
     setAccountName('');
     setActionError(null);
     setActionSuccess(null);
-    // Generate an Idempotency-Key ONCE per intent
     setCurrentIdempotencyKey(generateIdempotencyKey());
   };
 
@@ -87,6 +99,7 @@ export default function HolderDashboard() {
     setActionType(null);
     setActionError(null);
     setActionSuccess(null);
+    setSelectedTx(null);
     fetchAccounts();
   };
 
@@ -153,7 +166,6 @@ export default function HolderDashboard() {
         });
       }
 
-      // Display success only after the server confirms
       setActionSuccess({
         transferId: result.id,
         amountMinor: result.amountMinor,
@@ -170,7 +182,41 @@ export default function HolderDashboard() {
     }
   };
 
-  // Compute total balance across accounts
+  // Export transactions to CSV
+  const exportToCSV = () => {
+    if (tapeEntries.length === 0) return;
+    const headers = ['Entry ID', 'Date Time UTC', 'Direction', 'Amount (Paise)', 'Balance After (Paise)', 'Transfer UUID'];
+    const rows = tapeEntries.map(e => [
+      e.id,
+      new Date(e.createdAt).toISOString(),
+      e.direction,
+      e.amount,
+      e.balanceAfter,
+      e.transferId || ''
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `ledgerline-statement-${selectedAccount?.name || 'account'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Filtered transactions
+  const filteredEntries = useMemo(() => {
+    return tapeEntries.filter(entry => {
+      const matchesFilter = activityFilter === 'ALL' || entry.direction === activityFilter;
+      const matchesSearch = !searchQuery || 
+        entry.id.toString().includes(searchQuery) ||
+        (entry.transferId && entry.transferId.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        entry.amount.toString().includes(searchQuery);
+      return matchesFilter && matchesSearch;
+    });
+  }, [tapeEntries, activityFilter, searchQuery]);
+
+  // Total balance across accounts
   const totalBalance = accounts.reduce((acc, curr) => acc + (BigInt(curr.balance) || 0n), 0n);
 
   if (loading) {
@@ -184,329 +230,580 @@ export default function HolderDashboard() {
     );
   }
 
+  const currentAcc = selectedAccount || accounts[0];
+
   return (
     <div className="view-container">
-      {/* Hero Overview Card */}
-      <div
-        className="glass-panel"
-        style={{
-          marginBottom: '2rem',
-          padding: '2rem',
-          background: '#ffffff',
-          borderRadius: '16px',
-          boxShadow: 'var(--shadow-sm)'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.2rem', marginBottom: '1.5rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
-              <span className="live-beacon" />
-              <span className="hud-tag emerald">Verified & Protected</span>
-              <span className="hud-tag cyan">Real-Time Sync</span>
-            </div>
-            <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
-              Account Portfolio
-            </h1>
-            <p style={{ color: '#64748b', fontSize: '0.92rem', marginTop: '0.2rem' }}>
-              All transactions are settled instantly with double-entry precision and duplicate-charge protection.
-            </p>
-          </div>
-
-          <button onClick={() => openActionModal('CREATE_ACCOUNT')} className="btn btn-primary" style={{ flexShrink: 0 }}>
-            <Plus size={18} /> Open New Account
-          </button>
-        </div>
-
-        {/* Portfolio Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '1rem', paddingTop: '1.2rem', borderTop: '1px solid #f1f5f9' }}>
-          <div className="stat-tile">
-            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
-              Total Portfolio Balance
-            </div>
-            <div className="tabular-nums" style={{ fontSize: '1.9rem', fontWeight: 800, color: '#2563eb' }}>
-              {formatINR(totalBalance)}
-            </div>
-            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.2rem' }}>
-              Exact minor units: <code className="mono">{totalBalance.toString()} paise</code>
-            </div>
-          </div>
-
-          <div className="stat-tile">
-            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
-              Active Accounts
-            </div>
-            <div className="tabular-nums" style={{ fontSize: '1.9rem', fontWeight: 800, color: '#0f172a' }}>
-              {accounts.length} <span style={{ fontSize: '1rem', color: '#059669', fontWeight: 600 }}>Active</span>
-            </div>
-            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.2rem' }}>
-              Selected: <strong style={{ color: '#0f172a' }}>{selectedAccount ? selectedAccount.name : 'None'}</strong>
-            </div>
-          </div>
-
-          <div className="stat-tile">
-            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
-              Safety Guarantee
-            </div>
-            <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#059669', marginTop: '0.2rem' }}>
-              Zero-Loss Protected
-            </div>
-            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.4rem' }}>
-              Automated lock ordering prevents race conditions
-            </div>
-          </div>
-        </div>
-      </div>
-
       {error && (
-        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '1.8rem', color: '#be123c', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '1.5rem', color: '#be123c', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
           <AlertTriangle size={20} />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Account Cards Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <Wallet size={20} style={{ color: '#2563eb' }} />
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-            My Accounts ({accounts.length})
-          </h2>
-        </div>
-        <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
-          Select an account to view transactions
-        </span>
-      </div>
-
-      {/* Account Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 290px), 1fr))', gap: '1.25rem', marginBottom: '2.5rem' }}>
-        {accounts.map((acc) => {
-          const isSelected = selectedAccount?.id === acc.id;
-          return (
-            <div
-              key={acc.id}
-              className="glass-panel"
-              style={{
-                padding: '1.4rem',
-                cursor: 'pointer',
-                border: isSelected ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                background: '#ffffff',
-                boxShadow: isSelected ? 'var(--shadow-md)' : 'var(--shadow-sm)'
-              }}
-              onClick={() => setSelectedAccount(acc)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-                  <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: isSelected ? '#eff6ff' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: isSelected ? '1px solid #bfdbfe' : '1px solid #e2e8f0', color: isSelected ? '#2563eb' : '#64748b' }}>
-                    <Wallet size={18} />
-                  </div>
-                  <div>
-                    <span style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', display: 'block' }}>{acc.name}</span>
-                    <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{acc.type} ACCOUNT</span>
-                  </div>
-                </div>
-
-                <span className={`badge ${acc.status === 'ACTIVE' ? 'badge-emerald' : 'badge-crimson'}`}>
+      {/* Account Switcher Header / Selector */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem', maxWidth: '100%' }}>
+          {accounts.map(acc => {
+            const isSel = currentAcc?.id === acc.id;
+            return (
+              <button
+                key={acc.id}
+                onClick={() => setSelectedAccount(acc)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.45rem 0.9rem',
+                  borderRadius: '999px',
+                  border: isSel ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                  background: isSel ? '#eff6ff' : '#ffffff',
+                  color: isSel ? '#1d4ed8' : '#475569',
+                  fontWeight: 600,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: isSel ? '0 1px 3px rgba(37, 99, 235, 0.15)' : 'none'
+                }}
+              >
+                <Wallet size={14} style={{ color: isSel ? '#2563eb' : '#64748b' }} />
+                <span>{acc.name}</span>
+                <span className={`badge ${acc.status === 'ACTIVE' ? 'badge-emerald' : 'badge-crimson'}`} style={{ padding: '0.1rem 0.4rem', fontSize: '0.68rem' }}>
                   {acc.status}
                 </span>
-              </div>
+              </button>
+            );
+          })}
+        </div>
 
-              {/* Balance Display */}
-              <div style={{ marginBottom: '1rem', padding: '0.9rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
-                  Available Balance
-                </div>
-                <div className="tabular-nums" style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a' }}>
-                  {formatINR(acc.balance)}
-                </div>
-                <div style={{ fontSize: '0.72rem', color: '#2563eb', marginTop: '0.2rem' }}>
-                  Raw balance: <code className="mono">{acc.balance} paise</code>
-                </div>
-              </div>
-
-              {/* Account ID with copy */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem', color: '#64748b', marginBottom: '1rem', background: '#f1f5f9', padding: '0.45rem 0.65rem', borderRadius: '8px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)' }}>ID: {acc.id.slice(0, 8)}...{acc.id.slice(-4)}</span>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); copyToClipboard(acc.id, acc.id); }}
-                  style={{ background: 'transparent', border: 'none', color: copiedId === acc.id ? '#059669' : '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.74rem', fontWeight: 600 }}
-                  title="Copy account ID"
-                >
-                  {copiedId === acc.id ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy ID</>}
-                </button>
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                <button
-                  onClick={(e) => { e.stopPropagation(); openActionModal('DEPOSIT', acc); }}
-                  disabled={acc.status === 'FROZEN'}
-                  className="btn btn-secondary"
-                  style={{ flex: '1 1 80px', padding: '0.5rem 0.35rem', fontSize: '0.82rem', justifyContent: 'center' }}
-                >
-                  <ArrowDownLeft size={14} style={{ color: '#059669' }} /> Deposit
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); openActionModal('WITHDRAW', acc); }}
-                  disabled={acc.status === 'FROZEN' || acc.balance <= 0}
-                  className="btn btn-secondary"
-                  style={{ flex: '1 1 80px', padding: '0.5rem 0.35rem', fontSize: '0.82rem', justifyContent: 'center' }}
-                >
-                  <ArrowUpRight size={14} style={{ color: '#e11d48' }} /> Withdraw
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); openActionModal('TRANSFER', acc); }}
-                  disabled={acc.status === 'FROZEN' || acc.balance <= 0}
-                  className="btn btn-primary"
-                  style={{ flex: '1 1 80px', padding: '0.5rem 0.35rem', fontSize: '0.82rem', justifyContent: 'center' }}
-                >
-                  <Send size={14} /> Transfer
-                </button>
-              </div>
-            </div>
-          );
-        })}
+        <button
+          onClick={() => openActionModal('CREATE_ACCOUNT')}
+          className="btn btn-secondary"
+          style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+        >
+          <Plus size={15} /> Add Account
+        </button>
       </div>
 
-      {/* Activity Section */}
-      <div className="glass-panel" style={{ padding: '1.8rem', background: '#ffffff' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <Clock size={20} style={{ color: '#2563eb' }} />
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-              Recent Account Activity
-            </h2>
-            <span className="hud-tag cyan">Auto-Updated</span>
+      {/* Modern Fintech Neo-Card */}
+      {currentAcc && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #1e3a8a 0%, #1e293b 70%, #0f172a 100%)',
+            borderRadius: '20px',
+            padding: '1.75rem 1.6rem',
+            color: '#ffffff',
+            boxShadow: '0 10px 25px -5px rgba(30, 58, 138, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            marginBottom: '1.5rem',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
+          {/* Subtle Decorative Specular Gradient */}
+          <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(96, 165, 250, 0.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+          {/* Top Row: Account Name & Status */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.12)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CreditCard size={18} style={{ color: '#93c5fd' }} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '-0.01em' }}>
+                  {currentAcc.name}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  Double-Entry Checking
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(16, 185, 129, 0.2)', padding: '0.3rem 0.65rem', borderRadius: '999px', border: '1px solid rgba(16, 185, 129, 0.4)' }}>
+              <span className="live-beacon" />
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6ee7b7' }}>ACTIVE & SAFE</span>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ fontSize: '0.84rem', color: '#64748b' }}>
-              Showing: <strong style={{ color: '#0f172a' }}>{selectedAccount ? selectedAccount.name : 'All Accounts'}</strong>
-            </span>
-            <button onClick={fetchTapeEntries} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}>
+          {/* Middle: Available Balance */}
+          <div style={{ marginBottom: '1.4rem', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+              <span style={{ fontSize: '0.74rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                Available Balance
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowBalance(!showBalance)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                title={showBalance ? 'Hide balance' : 'Show balance'}
+              >
+                {showBalance ? <Eye size={15} /> : <EyeOff size={15} />}
+              </button>
+            </div>
+
+            <div className="tabular-nums" style={{ fontSize: '2.4rem', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              {showBalance ? formatINR(currentAcc.balance) : '₹ • • • • • •'}
+            </div>
+            <div style={{ fontSize: '0.74rem', color: '#93c5fd', marginTop: '0.3rem' }}>
+              Exact minor units: <code className="mono">{currentAcc.balance} paise</code>
+            </div>
+          </div>
+
+          {/* Bottom Row: Account Number & Copy Action */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '0.9rem', fontSize: '0.78rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#cbd5e1', fontFamily: 'var(--font-mono)' }}>
+              <span>AC: {currentAcc.id.slice(0, 8)} •••• {currentAcc.id.slice(-4)}</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(currentAcc.id, 'card-acc')}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: copiedId === 'card-acc' ? '#34d399' : '#ffffff',
+                  borderRadius: '6px',
+                  padding: '0.35rem 0.65rem',
+                  fontSize: '0.74rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+              >
+                {copiedId === 'card-acc' ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy ID</>}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openActionModal('SHARE_ID', currentAcc)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  padding: '0.35rem 0.65rem',
+                  fontSize: '0.74rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+              >
+                <Share2 size={13} /> Share Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Action Circles / Buttons */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '0.8rem',
+          marginBottom: '2rem'
+        }}
+      >
+        <button
+          onClick={() => openActionModal('DEPOSIT', currentAcc)}
+          disabled={currentAcc?.status === 'FROZEN'}
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '16px',
+            padding: '1rem 0.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.45rem',
+            cursor: 'pointer',
+            boxShadow: 'var(--shadow-sm)',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669', border: '1px solid #a7f3d0' }}>
+            <ArrowDownLeft size={20} />
+          </div>
+          <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#0f172a' }}>Deposit</span>
+        </button>
+
+        <button
+          onClick={() => openActionModal('WITHDRAW', currentAcc)}
+          disabled={currentAcc?.status === 'FROZEN' || (currentAcc && currentAcc.balance <= 0)}
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '16px',
+            padding: '1rem 0.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.45rem',
+            cursor: 'pointer',
+            boxShadow: 'var(--shadow-sm)',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fff1f2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e11d48', border: '1px solid #fecdd3' }}>
+            <ArrowUpRight size={20} />
+          </div>
+          <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#0f172a' }}>Withdraw</span>
+        </button>
+
+        <button
+          onClick={() => openActionModal('TRANSFER', currentAcc)}
+          disabled={currentAcc?.status === 'FROZEN' || (currentAcc && currentAcc.balance <= 0)}
+          style={{
+            background: '#ffffff',
+            border: '1px solid #bfdbfe',
+            borderRadius: '16px',
+            padding: '1rem 0.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.45rem',
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.08)',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}>
+            <Send size={18} />
+          </div>
+          <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#1d4ed8' }}>Transfer</span>
+        </button>
+      </div>
+
+      {/* Modern Transaction Feed Section */}
+      <div className="hud-card" style={{ padding: '1.5rem', background: '#ffffff', marginBottom: '2rem' }}>
+        {/* Section Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.8rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' }}>
+              Transaction Activity
+            </h2>
+            <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+              Instant settlement on {currentAcc?.name || 'account'}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={exportToCSV}
+              disabled={tapeEntries.length === 0}
+              className="btn btn-secondary"
+              style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
+              title="Download CSV Statement"
+            >
+              <Download size={14} /> Export
+            </button>
+            <button
+              onClick={fetchTapeEntries}
+              className="btn btn-secondary"
+              style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
+              title="Refresh transaction feed"
+            >
               <RefreshCw size={14} /> Refresh
             </button>
           </div>
         </div>
 
-        {tapeEntries.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b', fontSize: '0.95rem', background: '#f8fafc', borderRadius: '12px' }}>
-            No recent activity recorded for this account.
+        {/* Filter Pills & Search */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
+          {/* Pills */}
+          <div style={{ display: 'flex', gap: '0.35rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '10px' }}>
+            {['ALL', 'CREDIT', 'DEBIT'].map(mode => (
+              <button
+                key={mode}
+                onClick={() => setActivityFilter(mode)}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '7px',
+                  border: 'none',
+                  fontSize: '0.74rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: activityFilter === mode ? '#ffffff' : 'transparent',
+                  color: activityFilter === mode ? '#0f172a' : '#64748b',
+                  boxShadow: activityFilter === mode ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none'
+                }}
+              >
+                {mode === 'ALL' ? 'All' : mode === 'CREDIT' ? 'Money In' : 'Money Out'}
+              </button>
+            ))}
+          </div>
+
+          {/* Search Box */}
+          <div style={{ position: 'relative', minWidth: 'min(100%, 200px)' }}>
+            <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <input
+              type="text"
+              placeholder="Search amount or ID..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.4rem 0.75rem 0.4rem 2.2rem',
+                fontSize: '0.82rem',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                background: '#f8fafc',
+                color: '#0f172a'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Transaction List (Modern Feed View) */}
+        {filteredEntries.length === 0 ? (
+          <div style={{ padding: '3rem 1rem', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.92rem', marginBottom: '0.2rem', color: '#334155' }}>
+              No transactions found
+            </div>
+            <div style={{ fontSize: '0.8rem' }}>
+              {searchQuery ? 'Try clearing your search query.' : 'Use the Deposit button above to fund your account.'}
+            </div>
           </div>
         ) : (
-          <div className="table-responsive">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  <th style={{ padding: '0.8rem 1rem' }}>Entry #</th>
-                  <th style={{ padding: '0.8rem 1rem' }}>Time</th>
-                  <th style={{ padding: '0.8rem 1rem' }}>Type</th>
-                  <th style={{ padding: '0.8rem 1rem' }}>Amount</th>
-                  <th style={{ padding: '0.8rem 1rem' }}>Balance After</th>
-                  <th style={{ padding: '0.8rem 1rem' }}>Reference ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tapeEntries.map((entry) => (
-                  <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td className="mono" style={{ padding: '0.85rem 1rem', color: '#2563eb', fontWeight: 600 }}>
-                      #{entry.id}
-                    </td>
-                    <td style={{ padding: '0.85rem 1rem', color: '#475569', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
-                      {new Date(entry.createdAt).toLocaleTimeString()}
-                    </td>
-                    <td style={{ padding: '0.85rem 1rem' }}>
-                      <span className={`badge ${entry.direction === 'CREDIT' ? 'badge-emerald' : 'badge-crimson'}`}>
-                        {entry.direction === 'CREDIT' ? '+ Deposit / Credit' : '- Withdrawal / Debit'}
-                      </span>
-                    </td>
-                    <td className="tabular-nums" style={{ padding: '0.85rem 1rem', fontWeight: 700, fontSize: '0.95rem', color: entry.amount > 0 ? '#059669' : '#e11d48' }}>
-                      {entry.amount > 0 ? `+${formatINR(entry.amount)}` : formatINR(entry.amount)}
-                    </td>
-                    <td className="tabular-nums" style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#0f172a' }}>
-                      {formatINR(entry.balanceAfter)}
-                    </td>
-                    <td className="mono" style={{ padding: '0.85rem 1rem', color: '#64748b', fontSize: '0.78rem' }}>
-                      {entry.transferId ? `${entry.transferId.slice(0, 8)}...${entry.transferId.slice(-4)}` : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {filteredEntries.map((entry) => {
+              const isCredit = entry.direction === 'CREDIT';
+              return (
+                <div
+                  key={entry.id}
+                  onClick={() => { setSelectedTx(entry); setActionType('TX_DETAILS'); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.9rem 1rem',
+                    borderRadius: '12px',
+                    border: '1px solid #f1f5f9',
+                    background: '#ffffff',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = '#f1f5f9'}
+                >
+                  {/* Left: Icon & Description */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                    <div
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: isCredit ? '#ecfdf5' : '#fff1f2',
+                        color: isCredit ? '#059669' : '#e11d48',
+                        border: isCredit ? '1px solid #a7f3d0' : '1px solid #fecdd3',
+                        flexShrink: 0
+                      }}
+                    >
+                      {isCredit ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
+                    </div>
+
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0f172a' }}>
+                        {isCredit ? 'Deposit Received' : 'Withdrawal / Transfer Out'}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span>#{entry.id}</span>
+                        <span>•</span>
+                        <span>{new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Amount & Balance After */}
+                  <div style={{ textAlign: 'right' }}>
+                    <div
+                      className="tabular-nums"
+                      style={{
+                        fontWeight: 800,
+                        fontSize: '1.05rem',
+                        color: isCredit ? '#059669' : '#0f172a'
+                      }}
+                    >
+                      {isCredit ? `+${formatINR(entry.amount)}` : `-${formatINR(Math.abs(entry.amount))}`}
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                      Bal: {formatINR(entry.balanceAfter)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Action Dialog Modal */}
-      {actionType && (
+      {/* MODAL: SHARE ACCOUNT DETAILS */}
+      {actionType === 'SHARE_ID' && currentAcc && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#eff6ff', color: '#2563eb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.6rem' }}>
+                <Share2 size={24} />
+              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+                Account Details
+              </h3>
+              <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
+                Share your Account ID with anyone to receive transfers instantly.
+              </p>
+            </div>
+
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.2rem', marginBottom: '1.5rem' }}>
+              <div style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+                Account Name
+              </div>
+              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: '1rem' }}>
+                {currentAcc.name}
+              </div>
+
+              <div style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+                Full Account UUID
+              </div>
+              <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem', fontFamily: 'var(--font-mono)', fontSize: '0.84rem', color: '#0f172a', wordBreak: 'break-all' }}>
+                {currentAcc.id}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.8rem' }}>
+              <button
+                onClick={() => copyToClipboard(currentAcc.id, 'modal-acc')}
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+              >
+                {copiedId === 'modal-acc' ? <><Check size={16} /> Copied to Clipboard</> : <><Copy size={16} /> Copy Account ID</>}
+              </button>
+              <button onClick={closeModal} className="btn btn-secondary">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TRANSACTION DETAILS */}
+      {actionType === 'TX_DETAILS' && selectedTx && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: selectedTx.direction === 'CREDIT' ? '#ecfdf5' : '#fff1f2', color: selectedTx.direction === 'CREDIT' ? '#059669' : '#e11d48', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.6rem' }}>
+                {selectedTx.direction === 'CREDIT' ? <ArrowDownLeft size={24} /> : <ArrowUpRight size={24} />}
+              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+                Transaction Receipt
+              </h3>
+              <div className="tabular-nums" style={{ fontSize: '1.8rem', fontWeight: 800, color: selectedTx.direction === 'CREDIT' ? '#059669' : '#0f172a', marginTop: '0.3rem' }}>
+                {selectedTx.direction === 'CREDIT' ? `+${formatINR(selectedTx.amount)}` : `-${formatINR(Math.abs(selectedTx.amount))}`}
+              </div>
+              <span className={`badge ${selectedTx.direction === 'CREDIT' ? 'badge-emerald' : 'badge-crimson'}`} style={{ marginTop: '0.4rem' }}>
+                Settled & Verified
+              </span>
+            </div>
+
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontSize: '0.85rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Sequence ID</span>
+                <span className="mono" style={{ fontWeight: 600 }}>#{selectedTx.id}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Timestamp (UTC)</span>
+                <span style={{ color: '#0f172a' }}>{new Date(selectedTx.createdAt).toUTCString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Balance After</span>
+                <span className="tabular-nums" style={{ fontWeight: 700, color: '#0f172a' }}>{formatINR(selectedTx.balanceAfter)}</span>
+              </div>
+              {selectedTx.transferId && (
+                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.6rem' }}>
+                  <div style={{ color: '#64748b', fontSize: '0.74rem', marginBottom: '0.2rem' }}>Transfer UUID:</div>
+                  <div className="mono" style={{ fontSize: '0.78rem', wordBreak: 'break-all', color: '#2563eb' }}>
+                    {selectedTx.transferId}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button onClick={closeModal} className="btn btn-primary" style={{ width: '100%' }}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DEPOSIT / WITHDRAW / TRANSFER / CREATE ACCOUNT */}
+      {(actionType === 'DEPOSIT' || actionType === 'WITHDRAW' || actionType === 'TRANSFER' || actionType === 'CREATE_ACCOUNT') && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '0.4rem' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: actionType === 'DEPOSIT' ? '#ecfdf5' : actionType === 'WITHDRAW' ? '#fff1f2' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: actionType === 'DEPOSIT' ? '#059669' : actionType === 'WITHDRAW' ? '#e11d48' : '#2563eb' }}>
+                {actionType === 'DEPOSIT' && <ArrowDownLeft size={20} />}
+                {actionType === 'WITHDRAW' && <ArrowUpRight size={20} />}
+                {actionType === 'TRANSFER' && <Send size={18} />}
+                {actionType === 'CREATE_ACCOUNT' && <Plus size={20} />}
+              </div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+                {actionType === 'DEPOSIT' && 'Deposit Funds'}
+                {actionType === 'WITHDRAW' && 'Withdraw Funds'}
+                {actionType === 'TRANSFER' && 'Transfer Money'}
                 {actionType === 'CREATE_ACCOUNT' && 'Open New Account'}
-                {actionType === 'DEPOSIT' && `Deposit Money to ${selectedAccount?.name}`}
-                {actionType === 'WITHDRAW' && `Withdraw Money from ${selectedAccount?.name}`}
-                {actionType === 'TRANSFER' && `Send Money from ${selectedAccount?.name}`}
               </h2>
             </div>
 
-            <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '1.5rem' }}>
-              Transactions execute instantly with dual-entry verification and duplicate-charge protection.
+            <p style={{ color: '#64748b', fontSize: '0.86rem', marginBottom: '1.2rem' }}>
+              {actionType === 'DEPOSIT' && `Add money instantly into ${currentAcc?.name}.`}
+              {actionType === 'WITHDRAW' && `Withdraw funds from ${currentAcc?.name}.`}
+              {actionType === 'TRANSFER' && `Send funds to another customer's Account ID.`}
+              {actionType === 'CREATE_ACCOUNT' && 'Create a separate savings or checking ledger account.'}
             </p>
 
-            {/* Error Message */}
             {actionError && (
-              <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.4rem', color: '#be123c', fontSize: '0.88rem', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+              <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '10px', padding: '0.8rem 1rem', marginBottom: '1.2rem', color: '#be123c', fontSize: '0.86rem', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                 <AlertTriangle size={18} style={{ flexShrink: 0 }} />
                 <span>{actionError}</span>
               </div>
             )}
 
-            {/* Success Confirmation Screen */}
             {actionSuccess ? (
               <div>
-                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '1.6rem', marginBottom: '1.4rem', textAlign: 'center' }}>
-                  <CheckCircle2 size={42} style={{ color: '#059669', margin: '0 auto 0.6rem' }} />
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#065f46', marginBottom: '0.2rem' }}>
+                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.2rem', textAlign: 'center' }}>
+                  <CheckCircle2 size={40} style={{ color: '#059669', margin: '0 auto 0.5rem' }} />
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#065f46' }}>
                     Transaction Successful!
                   </h3>
-                  <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: '#047857', margin: '0.5rem 0' }}>
+                  <div className="tabular-nums" style={{ fontSize: '1.9rem', fontWeight: 800, color: '#047857', margin: '0.4rem 0' }}>
                     {formatINR(actionSuccess.amountMinor)}
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: '#475569', background: '#ffffff', padding: '0.4rem 0.8rem', borderRadius: '6px', display: 'inline-block', border: '1px solid #e2e8f0' }}>
-                    Reference ID: <code className="mono">{actionSuccess.transferId}</code>
+                  <div style={{ fontSize: '0.78rem', color: '#475569', background: '#ffffff', padding: '0.35rem 0.75rem', borderRadius: '6px', display: 'inline-block', border: '1px solid #e2e8f0' }}>
+                    Ref: <code className="mono">{actionSuccess.transferId?.slice(0, 8)}...</code>
                   </div>
                 </div>
 
-                {/* Idempotent Replay Indicator */}
                 {actionSuccess.isReplayed && (
-                  <div className="badge-replay" style={{ padding: '0.9rem', borderRadius: '10px', marginBottom: '1.4rem', display: 'flex', gap: '0.7rem', alignItems: 'center', fontSize: '0.86rem' }}>
-                    <RefreshCw size={18} style={{ flexShrink: 0 }} />
+                  <div className="badge-replay" style={{ padding: '0.8rem', borderRadius: '10px', marginBottom: '1.2rem', display: 'flex', gap: '0.6rem', alignItems: 'center', fontSize: '0.84rem' }}>
+                    <RefreshCw size={16} style={{ flexShrink: 0 }} />
                     <div>
-                      <strong>Protected from double-charge:</strong> The server recognized this request and returned the saved confirmation without charging again.
+                      <strong>Protected from double-charge:</strong> Response replayed safely.
                     </div>
                   </div>
                 )}
 
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem', marginBottom: '1.5rem', fontSize: '0.78rem' }}>
-                  <div style={{ color: '#64748b', marginBottom: '0.2rem' }}>Idempotency Protection Key:</div>
-                  <code className="mono" style={{ color: '#2563eb', wordBreak: 'break-all' }}>{actionSuccess.keyUsed}</code>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.8rem' }}>
-                  <button
-                    onClick={() => executeAction(actionSuccess.keyUsed)}
-                    disabled={actionLoading}
-                    className="btn btn-secondary"
-                    style={{ flex: 1 }}
-                    title="Resends request with the exact same Idempotency Key"
-                  >
-                    <RefreshCw size={16} /> Retry same request
-                  </button>
-                  <button onClick={closeModal} className="btn btn-primary" style={{ flex: 1 }}>
-                    Done
-                  </button>
-                </div>
+                <button onClick={closeModal} className="btn btn-primary" style={{ width: '100%' }}>
+                  Done
+                </button>
               </div>
             ) : actionType === 'CREATE_ACCOUNT' ? (
               <form onSubmit={handleCreateAccount}>
@@ -520,7 +817,7 @@ export default function HolderDashboard() {
                     className="form-input"
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value)}
-                    placeholder="e.g. Savings Vault, Emergency Fund"
+                    placeholder="e.g. Vacation Fund, Savings"
                     autoFocus
                   />
                 </div>
@@ -535,8 +832,8 @@ export default function HolderDashboard() {
               <div>
                 {actionType === 'TRANSFER' && (
                   <div style={{ marginBottom: '1.2rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#334155', marginBottom: '0.4rem', fontWeight: 600 }}>
-                      Destination Account ID
+                    <label style={{ display: 'block', fontSize: '0.84rem', color: '#334155', marginBottom: '0.4rem', fontWeight: 600 }}>
+                      Destination Account ID (UUID)
                     </label>
                     <input
                       type="text"
@@ -544,15 +841,21 @@ export default function HolderDashboard() {
                       className="form-input mono"
                       value={targetAccountId}
                       onChange={(e) => setTargetAccountId(e.target.value)}
-                      placeholder="e.g. c0000000-0000-0000-0000-000000000002"
+                      placeholder="e.g. 1531c8d2-b26e-41bd-886d-bd7294e640aa"
                     />
                   </div>
                 )}
 
-                <div style={{ marginBottom: '1.4rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#334155', marginBottom: '0.4rem', fontWeight: 600 }}>
-                    Amount (in ₹ Rupees)
-                  </label>
+                <div style={{ marginBottom: '1.2rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                    <label style={{ fontSize: '0.84rem', color: '#334155', fontWeight: 600 }}>
+                      Amount (in ₹ Rupees)
+                    </label>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                      Avail: {formatINR(currentAcc?.balance || 0)}
+                    </span>
+                  </div>
+
                   <input
                     type="number"
                     step="0.01"
@@ -564,15 +867,51 @@ export default function HolderDashboard() {
                     placeholder="0.00"
                     autoFocus
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.45rem' }}>
-                    <span className="hud-tag emerald">
-                      Exact paise: {parseINRToMinorUnits(amountRupees).toString()}
-                    </span>
+
+                  {/* Quick Preset Buttons */}
+                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+                    {['100', '500', '1000', '5000'].map(preset => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setAmountRupees(preset)}
+                        style={{
+                          background: '#f1f5f9',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          padding: '0.25rem 0.55rem',
+                          fontSize: '0.76rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          color: '#334155'
+                        }}
+                      >
+                        +₹{preset}
+                      </button>
+                    ))}
+                    {(actionType === 'WITHDRAW' || actionType === 'TRANSFER') && currentAcc && currentAcc.balance > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setAmountRupees((Number(currentAcc.balance) / 100).toFixed(2))}
+                        style={{
+                          background: '#eff6ff',
+                          border: '1px solid #bfdbfe',
+                          borderRadius: '6px',
+                          padding: '0.25rem 0.55rem',
+                          fontSize: '0.76rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          color: '#1d4ed8'
+                        }}
+                      >
+                        Max Balance
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem', marginBottom: '1.5rem', fontSize: '0.78rem' }}>
-                  <div style={{ color: '#64748b', marginBottom: '0.2rem' }}>Duplicate Protection Key:</div>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.65rem 0.8rem', marginBottom: '1.4rem', fontSize: '0.74rem' }}>
+                  <div style={{ color: '#64748b', marginBottom: '0.15rem' }}>Duplicate Protection Key:</div>
                   <code className="mono" style={{ color: '#2563eb', wordBreak: 'break-all' }}>{currentIdempotencyKey}</code>
                 </div>
 
@@ -581,10 +920,10 @@ export default function HolderDashboard() {
                   <button
                     type="button"
                     onClick={() => executeAction()}
-                    disabled={actionLoading}
+                    disabled={actionLoading || !amountRupees || Number(amountRupees) <= 0}
                     className="btn btn-primary"
                   >
-                    {actionLoading ? 'Processing...' : `Confirm ${actionType === 'TRANSFER' ? 'Transfer' : actionType === 'DEPOSIT' ? 'Deposit' : 'Withdrawal'}`}
+                    {actionLoading ? 'Processing...' : `Confirm ${actionType === 'DEPOSIT' ? 'Deposit' : actionType === 'WITHDRAW' ? 'Withdrawal' : 'Transfer'}`}
                   </button>
                 </div>
               </div>
