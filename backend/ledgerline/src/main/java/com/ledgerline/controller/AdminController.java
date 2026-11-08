@@ -37,13 +37,19 @@ public class AdminController {
     @GetMapping("/users")
     public ResponseEntity<List<UserResponse>> listUsers() {
         List<UserResponse> users = jdbcTemplate.query(
-                "SELECT id, email, role, enabled FROM users ORDER BY created_at ASC LIMIT 100",
-                (rs, rowNum) -> new UserResponse(
-                        (UUID) rs.getObject("id"),
-                        rs.getString("email"),
-                        com.ledgerline.model.UserRole.valueOf(rs.getString("role")),
-                        rs.getBoolean("enabled")
-                )
+                "SELECT id, email, role, enabled, failed_logins, locked_until FROM users ORDER BY created_at ASC LIMIT 100",
+                (rs, rowNum) -> {
+                    java.sql.Timestamp lockedUntil = rs.getTimestamp("locked_until");
+                    boolean isLocked = lockedUntil != null && lockedUntil.toInstant().isAfter(java.time.Instant.now());
+                    return new UserResponse(
+                            (UUID) rs.getObject("id"),
+                            rs.getString("email"),
+                            com.ledgerline.model.UserRole.valueOf(rs.getString("role")),
+                            rs.getBoolean("enabled"),
+                            rs.getInt("failed_logins"),
+                            isLocked
+                    );
+                }
         );
         return ResponseEntity.ok(users);
     }
@@ -205,6 +211,59 @@ public class AdminController {
                 email,
                 com.ledgerline.model.UserRole.valueOf(roleStr),
                 true
+        ));
+    }
+
+    @PostMapping("/users/{id}/unlock")
+    public ResponseEntity<?> unlockUser(
+            @PathVariable UUID id,
+            Authentication authentication,
+            HttpServletRequest servletRequest) {
+        UUID adminId = parseAdminId(authentication);
+
+        List<Map<String, Object>> targetList = jdbcTemplate.queryForList(
+                "SELECT id, email, role, enabled, failed_logins, locked_until FROM users WHERE id = ?",
+                id
+        );
+        if (targetList.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .contentType(MediaType.parseMediaType("application/problem+json"))
+                    .body(Map.of(
+                            "type", "about:blank",
+                            "title", "Not Found",
+                            "status", 404,
+                            "detail", "User not found: " + id
+                    ));
+        }
+
+        Map<String, Object> target = targetList.get(0);
+        String email = (String) target.get("email");
+        int failedLogins = target.get("failed_logins") != null ? ((Number) target.get("failed_logins")).intValue() : 0;
+        java.sql.Timestamp lockedUntil = (java.sql.Timestamp) target.get("locked_until");
+
+        jdbcTemplate.update("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?", id);
+
+        auditService.appendAudit(
+                adminId,
+                "ADMIN",
+                "UNLOCK_USER",
+                "USER",
+                id.toString(),
+                Map.of(
+                        "userId", id.toString(),
+                        "email", email,
+                        "previousFailedLogins", failedLogins,
+                        "previousLockedUntil", lockedUntil != null ? lockedUntil.toString() : "null",
+                        "unlocked", true
+                ),
+                servletRequest != null ? servletRequest.getRemoteAddr() : null
+        );
+
+        return ResponseEntity.ok(Map.of(
+                "id", id.toString(),
+                "email", email,
+                "failedLogins", 0,
+                "unlocked", true
         ));
     }
 

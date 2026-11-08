@@ -10,12 +10,20 @@ public class UserResponse {
     private String email;
     private UserRole role;
     private boolean enabled;
+    private Integer failedLogins;
+    private Boolean locked;
 
     public UserResponse(UUID id, String email, UserRole role, boolean enabled) {
+        this(id, email, role, enabled, 0, false);
+    }
+
+    public UserResponse(UUID id, String email, UserRole role, boolean enabled, Integer failedLogins, Boolean locked) {
         this.id = id;
         this.email = email;
         this.role = role;
         this.enabled = enabled;
+        this.failedLogins = failedLogins;
+        this.locked = locked;
     }
 
     public UUID getId() {
@@ -32,6 +40,14 @@ public class UserResponse {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public Integer getFailedLogins() {
+        return failedLogins;
+    }
+
+    public Boolean isLocked() {
+        return locked;
     }
 }
 

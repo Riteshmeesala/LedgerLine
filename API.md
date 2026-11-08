@@ -744,6 +744,46 @@ curl -X POST http://localhost:8080/api/admin/users/c1000000-0000-0000-0000-00000
 
 ---
 
+### 6.7 Unlock User (`POST /api/admin/users/{id}/unlock`)
+Resets consecutive failed login attempts (`failed_logins = 0`) and clears any active 15-minute brute-force lockout (`locked_until = NULL`). Allows the user to authenticate immediately. Logs an immutable `UNLOCK_USER` audit record into the SHA-256 chain. Restricted strictly to `ADMIN`.
+
+```bash
+curl -X POST http://localhost:8080/api/admin/users/c1000000-0000-0000-0000-000000000001/unlock \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Response (HTTP 200 OK)**:
+```json
+{
+  "id": "c1000000-0000-0000-0000-000000000001",
+  "email": "holder1@ledgerline.local",
+  "failedLogins": 0,
+  "unlocked": true
+}
+```
+
+**Error Responses**:
+- Unknown user ID (HTTP 404 Not Found Problem Details):
+```json
+{
+  "type": "about:blank",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "User not found: c1000000-0000-0000-0000-000000000001"
+}
+```
+- Non-admin caller (HTTP 403 Forbidden Problem Details):
+```json
+{
+  "type": "about:blank",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "You do not have permission to access this resource"
+}
+```
+
+---
+
 ## 7. Health & Monitoring
 
 ### 7.1 System Health (`GET /api/health`)

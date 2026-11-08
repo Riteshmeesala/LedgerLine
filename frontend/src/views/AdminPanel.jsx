@@ -120,6 +120,23 @@ export default function AdminPanel() {
     }
   };
 
+  const handleUnlockUser = async (targetUser) => {
+    setError(null);
+    setSuccessMsg(null);
+    setActionLoadingId(targetUser.id);
+    try {
+      await apiClient(`/api/admin/users/${targetUser.id}/unlock`, {
+        method: 'POST'
+      });
+      setSuccessMsg(`User ${targetUser.email} has been successfully unlocked. Failed logins reset.`);
+      await fetchUsers();
+    } catch (err) {
+      setError(err.detail || err.message || 'Failed to unlock user.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   const handleOpenFreezeModal = (acc) => {
     setFreezeModal({
       open: true,
@@ -504,7 +521,8 @@ export default function AdminPanel() {
                   <th style={{ padding: '0.75rem 1rem' }}>User Identity</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Role</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Account State</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Governance Action</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Lockout / Auth State</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Governance Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -516,6 +534,7 @@ export default function AdminPanel() {
                   .map(u => {
                     const isSelf = currentUser && (currentUser.id === u.id || currentUser.email === u.email);
                     const isLoading = actionLoadingId === u.id;
+                    const hasLockOrFails = u.locked || (u.failedLogins && u.failedLogins > 0);
                     return (
                       <tr key={u.id} style={{ borderBottom: '1px solid #f8fafc', transition: 'background-color 0.15s' }}>
                         <td style={{ padding: '0.85rem 1rem' }}>
@@ -534,28 +553,57 @@ export default function AdminPanel() {
                             {u.enabled ? 'ACTIVE' : 'DISABLED'}
                           </span>
                         </td>
-                        <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
-                          {isSelf ? (
-                            <span style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#f1f5f9', padding: '0.3rem 0.65rem', borderRadius: '6px' }}>
-                              <Shield size={13} style={{ color: '#7c3aed' }} /> Self (Protected)
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          {u.locked ? (
+                            <span className="badge badge-crimson" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <Lock size={11} /> LOCKED (15m)
+                            </span>
+                          ) : u.failedLogins > 0 ? (
+                            <span className="badge badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <AlertTriangle size={11} /> {u.failedLogins} Failed
                             </span>
                           ) : (
-                            <button
-                              type="button"
-                              disabled={isLoading}
-                              onClick={() => handleToggleUserStatus(u)}
-                              className={`btn ${u.enabled ? 'btn-danger' : 'btn-secondary'} btn-sm`}
-                              style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
-                            >
-                              {isLoading ? (
-                                'Updating...'
-                              ) : u.enabled ? (
-                                <><UserX size={13} /> Disable Access</>
-                              ) : (
-                                <><UserCheck size={13} /> Enable Access</>
-                              )}
-                            </button>
+                            <span style={{ fontSize: '0.76rem', color: '#10b981', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <CheckCircle2 size={12} /> Normal
+                            </span>
                           )}
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', justifyContent: 'flex-end' }}>
+                            {hasLockOrFails && (
+                              <button
+                                type="button"
+                                disabled={isLoading}
+                                onClick={() => handleUnlockUser(u)}
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', borderColor: '#38bdf8', color: '#0284c7', background: '#f0f9ff' }}
+                                title="Reset failed login counter and unlock account"
+                              >
+                                <Key size={13} /> Unlock
+                              </button>
+                            )}
+                            {isSelf ? (
+                              <span style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#f1f5f9', padding: '0.3rem 0.65rem', borderRadius: '6px' }}>
+                                <Shield size={13} style={{ color: '#7c3aed' }} /> Self (Protected)
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={isLoading}
+                                onClick={() => handleToggleUserStatus(u)}
+                                className={`btn ${u.enabled ? 'btn-danger' : 'btn-secondary'} btn-sm`}
+                                style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+                              >
+                                {isLoading ? (
+                                  'Updating...'
+                                ) : u.enabled ? (
+                                  <><UserX size={13} /> Disable Access</>
+                                ) : (
+                                  <><UserCheck size={13} /> Enable Access</>
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

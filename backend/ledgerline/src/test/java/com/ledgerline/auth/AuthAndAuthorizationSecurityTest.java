@@ -498,6 +498,80 @@ public class AuthAndAuthorizationSecurityTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @DisplayName("Feature 6 Security: ADMIN can unlock locked user, resetting failed_logins and locked_until, audited")
+    void adminCanUnlockLockedUserAndResetsFailedLoginsWithAuditLog() throws Exception {
+        // Create user with locked status
+        UUID targetId = UUID.randomUUID();
+        String targetEmail = "locked-user-" + targetId + "@test.com";
+        jdbcTemplate.update(
+                "INSERT INTO users (id, email, password_hash, role, enabled, failed_logins, locked_until, created_at) " +
+                "VALUES (?, ?, '$2a$12$e8xL4hM45cIuR7w2xK5.4.mE9oQ31L8mS5vU3kL6yY7zW9x1v2b3u', 'HOLDER', TRUE, 5, ?, ?)",
+                targetId, targetEmail, Timestamp.from(Instant.now().plus(15, ChronoUnit.MINUTES)), Timestamp.from(Instant.now())
+        );
+
+        // Before unlock: verify user cannot login (lockout enforced)
+        LoginRequest loginAttempt = new LoginRequest(targetEmail, "Password123!");
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginAttempt)))
+                .andExpect(status().isUnauthorized());
+
+        // Admin unlocks user
+        mockMvc.perform(post("/api/admin/users/{id}/unlock", targetId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(targetId.toString()))
+                .andExpect(jsonPath("$.failedLogins").value(0))
+                .andExpect(jsonPath("$.lockedUntil").doesNotExist());
+
+        // Verify DB record is reset
+        Map<String, Object> userRow = jdbcTemplate.queryForMap(
+                "SELECT failed_logins, locked_until FROM users WHERE id = ?", targetId
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(0, ((Number) userRow.get("failed_logins")).intValue());
+        org.junit.jupiter.api.Assertions.assertNull(userRow.get("locked_until"));
+
+        // Verify audit log has UNLOCK_USER entry
+        List<Map<String, Object>> auditEntries = jdbcTemplate.queryForList(
+                "SELECT * FROM audit_log WHERE entity_type = 'USER' AND entity_id = ? AND action = 'UNLOCK_USER'",
+                targetId.toString()
+        );
+        org.junit.jupiter.api.Assertions.assertFalse(auditEntries.isEmpty(), "Audit log must contain UNLOCK_USER entry");
+        org.junit.jupiter.api.Assertions.assertEquals(adminId, auditEntries.get(0).get("actor_id"));
+    }
+
+    @Test
+    @DisplayName("Feature 6 Security: HOLDER and AUDITOR cannot unlock users (HTTP 403)")
+    void holderAndAuditorCannotUnlockUserReturns403() throws Exception {
+        mockMvc.perform(post("/api/admin/users/{id}/unlock", holderIdA)
+                        .header("Authorization", "Bearer " + holderTokenA))
+                .andExpect(status().isForbidden());
+
+        // Create valid auditor in DB and generate token
+        UUID auditorId = UUID.randomUUID();
+        String auditorEmail = "auditor-" + auditorId + "@test.com";
+        jdbcTemplate.update(
+                "INSERT INTO users (id, email, password_hash, role, enabled, failed_logins, created_at) VALUES (?, ?, '$2a$12$e8xL4hM45cIuR7w2xK5.4.mE9oQ31L8mS5vU3kL6yY7zW9x1v2b3u', 'AUDITOR', TRUE, 0, ?)",
+                auditorId, auditorEmail, Timestamp.from(Instant.now())
+        );
+        String auditorToken = jwtService.generateToken(auditorId, UserRole.AUDITOR);
+        mockMvc.perform(post("/api/admin/users/{id}/unlock", holderIdA)
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Feature 6 Security: Unlocking unknown user returns HTTP 404 Problem Details")
+    void unlockUnknownUserReturns404ProblemDetails() throws Exception {
+        UUID unknownId = UUID.randomUUID();
+        mockMvc.perform(post("/api/admin/users/{id}/unlock", unknownId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
     private void registerUser(String email, String password) throws Exception {
         RegisterRequest request = new RegisterRequest(email, password);
         mockMvc.perform(post("/api/auth/register")
