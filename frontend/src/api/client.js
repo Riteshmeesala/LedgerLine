@@ -11,19 +11,50 @@
  * requiring re-authentication.
  */
 
-let inMemoryToken = null;
+const TOKEN_KEY = 'ledgerline_auth_token';
+
+function getStoredToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveStoredToken(token) {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      sessionStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+    }
+  } catch (e) {}
+}
+
+let inMemoryToken = getStoredToken();
 const unauthorizedListeners = new Set();
 
 export function setToken(token) {
   inMemoryToken = token;
+  saveStoredToken(token);
 }
 
 export function getToken() {
+  if (!inMemoryToken) {
+    inMemoryToken = getStoredToken();
+  }
   return inMemoryToken;
 }
 
 export function clearToken() {
   inMemoryToken = null;
+  saveStoredToken(null);
+  try {
+    localStorage.removeItem('ledgerline_auth_user');
+    sessionStorage.removeItem('ledgerline_auth_user');
+  } catch (e) {}
 }
 
 export function onUnauthorized(callback) {
@@ -81,11 +112,28 @@ export async function apiClient(endpoint, options = {}) {
   const routeA = customBase ? `${customBase}${cleanEndpoint}` : cleanEndpoint;
   const routeB = customBase ? cleanEndpoint : `${DEFAULT_BACKEND_URL}${cleanEndpoint}`;
 
+  const fetchWithTimeout = async (url, fetchConfig, timeoutMs = 12000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...fetchConfig, signal: controller.signal });
+      clearTimeout(id);
+      return res;
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+  };
+
   try {
-    response = await fetch(routeA, config);
+    response = await fetchWithTimeout(routeA, config, 10000);
+    // If routeA (e.g. Vercel proxy) returned 502/503/504 Bad Gateway, failover immediately to direct backend
+    if (response.status >= 502 && response.status <= 504) {
+      throw new Error(`Gateway returned HTTP ${response.status}`);
+    }
   } catch (errA) {
     try {
-      response = await fetch(routeB, config);
+      response = await fetchWithTimeout(routeB, config, 15000);
     } catch (errB) {
       throw new ApiError(
         0,
@@ -109,7 +157,11 @@ export async function apiClient(endpoint, options = {}) {
   } else {
     try {
       const text = await response.text();
-      data = text ? { message: text } : null;
+      if (text && !text.includes('<!DOCTYPE') && !text.includes('<html')) {
+        data = { message: text };
+      } else {
+        data = { message: `Server returned status ${response.status}` };
+      }
     } catch (e) {
       data = null;
     }

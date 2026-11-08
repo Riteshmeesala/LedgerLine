@@ -60,8 +60,20 @@ export default function LoginView() {
   const [slowNotice, setSlowNotice] = useState(false);
   const [activePersonaRole, setActivePersonaRole] = useState(null);
 
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (user) {
+      if (user.role === 'AUDITOR') {
+        navigate('/auditor', { replace: true });
+      } else if (user.role === 'ADMIN') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [user, navigate]);
 
   const handleLoginSubmit = async (loginEmail, loginPass, targetPath = null) => {
     setError(null);

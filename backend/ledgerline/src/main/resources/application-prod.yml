@@ -30,7 +30,7 @@ ledgerline:
     secret: ${JWT_SECRET}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:15}
   cors:
-    allowed-origin: ${FRONTEND_ORIGIN:https://ledgerline.vercel.app}
+    allowed-origin: ${FRONTEND_ORIGIN:https://ledger-line-orpin.vercel.app}
   limits:
     max-minor-units: 10000000000
   rate-limit:

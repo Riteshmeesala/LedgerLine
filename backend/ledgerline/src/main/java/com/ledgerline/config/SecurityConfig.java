@@ -99,8 +99,20 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // Strict single origin from configuration. Never wildcard "*".
-        config.setAllowedOrigins(List.of(allowedOrigin));
+        java.util.List<String> origins = new java.util.ArrayList<>();
+        if (allowedOrigin != null) {
+            for (String o : allowedOrigin.split(",")) {
+                String trimmed = o.trim();
+                if (!trimmed.isEmpty()) {
+                    origins.add(trimmed);
+                }
+            }
+        }
+        if (!origins.contains("https://ledger-line-orpin.vercel.app")) {
+            origins.add("https://ledger-line-orpin.vercel.app");
+        }
+        // Strict list of allowed origins from configuration. Never wildcard "*".
+        config.setAllowedOrigins(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key"));
         config.setExposedHeaders(List.of("Idempotent-Replayed"));
