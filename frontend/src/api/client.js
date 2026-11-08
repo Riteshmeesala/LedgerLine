@@ -55,8 +55,10 @@ export class ApiError extends Error {
 
 export async function apiClient(endpoint, options = {}) {
   const DEFAULT_BACKEND_URL = 'https://ledgerline-t2vv.onrender.com';
-  const baseUrl = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? DEFAULT_BACKEND_URL : '')).replace(/\/$/, '');
-  const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const customBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+  
+  // Format target endpoint
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
   const headers = {
     'Content-Type': 'application/json',
@@ -73,10 +75,38 @@ export async function apiClient(endpoint, options = {}) {
   };
 
   let response;
+  // Strategy: 
+  // 1. If explicit VITE_API_BASE_URL provided, use it.
+  // 2. Otherwise, first attempt same-origin (Vercel proxy / Vite dev proxy) to prevent CORS and tracker blocks.
+  // 3. If same-origin throws network error, fail over to direct Render cloud URL.
+  const primaryUrl = customBase 
+    ? `${customBase}${cleanEndpoint}` 
+    : cleanEndpoint;
+
   try {
-    response = await fetch(url, config);
-  } catch (networkError) {
-    throw new ApiError(0, 'Network Error', 'Unable to connect to server. Please check your network.', {});
+    response = await fetch(primaryUrl, config);
+  } catch (primaryErr) {
+    // If not using a custom base and primary was relative, try direct Render backend fallback
+    if (!customBase && !primaryUrl.startsWith('http')) {
+      const fallbackUrl = `${DEFAULT_BACKEND_URL}${cleanEndpoint}`;
+      try {
+        response = await fetch(fallbackUrl, config);
+      } catch (fallbackErr) {
+        throw new ApiError(
+          0,
+          'Network Error',
+          'Unable to connect to ledger cloud. If this is the first request, the server may be waking up from idle (~30s). Please retry in a few moments or hard refresh.',
+          { primaryErr: primaryErr.message, fallbackErr: fallbackErr.message }
+        );
+      }
+    } else {
+      throw new ApiError(
+        0,
+        'Network Error',
+        'Unable to connect to server. Please check your network or wait ~30s if server is waking up from idle.',
+        { originalError: primaryErr.message }
+      );
+    }
   }
 
   const isReplayed = response.headers.get('Idempotent-Replayed') === 'true';

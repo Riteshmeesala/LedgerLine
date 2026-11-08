@@ -57,6 +57,7 @@ export default function LoginView() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [slowNotice, setSlowNotice] = useState(false);
   const [activePersonaRole, setActivePersonaRole] = useState(null);
 
   const { login } = useAuth();
@@ -65,9 +66,16 @@ export default function LoginView() {
   const handleLoginSubmit = async (loginEmail, loginPass, targetPath = null) => {
     setError(null);
     setLoading(true);
+    setSlowNotice(false);
+
+    // If Render cold-start takes > 2.5 seconds, notify the user that the server is waking up
+    const timer = setTimeout(() => {
+      setSlowNotice(true);
+    }, 2500);
 
     try {
       const res = await login(loginEmail, loginPass);
+      clearTimeout(timer);
       if (targetPath) {
         navigate(targetPath);
       } else if (res.role === 'AUDITOR') {
@@ -78,9 +86,12 @@ export default function LoginView() {
         navigate('/dashboard');
       }
     } catch (err) {
+      clearTimeout(timer);
       setError(err.detail || err.message || 'Login failed.');
     } finally {
+      clearTimeout(timer);
       setLoading(false);
+      setSlowNotice(false);
       setActivePersonaRole(null);
     }
   };
@@ -205,23 +216,78 @@ export default function LoginView() {
           <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
         </div>
 
+        {slowNotice && (
+          <div
+            style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '10px',
+              padding: '0.75rem 0.95rem',
+              marginBottom: '1.2rem',
+              display: 'flex',
+              gap: '0.65rem',
+              alignItems: 'center',
+              color: '#1d4ed8',
+              fontSize: '0.84rem'
+            }}
+          >
+            <Sparkles size={18} style={{ flexShrink: 0, animation: 'spin 2s linear infinite' }} />
+            <span>Connecting to cloud backend (waking up instance, please wait ~20s)...</span>
+          </div>
+        )}
+
         {error && (
           <div
             style={{
               background: '#fff1f2',
               border: '1px solid #fecdd3',
               borderRadius: '10px',
-              padding: '0.8rem 1rem',
+              padding: '0.85rem 1rem',
               marginBottom: '1.2rem',
-              display: 'flex',
-              gap: '0.7rem',
-              alignItems: 'center',
               color: '#be123c',
               fontSize: '0.86rem'
             }}
           >
-            <ShieldAlert size={18} style={{ flexShrink: 0 }} />
-            <span>{error}</span>
+            <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
+              <ShieldAlert size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <span style={{ fontWeight: 600 }}>{error}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #fda4af',
+                  borderRadius: '6px',
+                  padding: '0.25rem 0.65rem',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: '#9f1239',
+                  cursor: 'pointer'
+                }}
+              >
+                Hard Refresh
+              </button>
+              {email && password && (
+                <button
+                  type="button"
+                  onClick={() => handleLoginSubmit(email, password)}
+                  style={{
+                    background: '#be123c',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '0.25rem 0.65rem',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: '#ffffff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Retry Login
+                </button>
+              )}
+            </div>
           </div>
         )}
 
