@@ -45,22 +45,11 @@ export default function RegisterView() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '2rem 1.5rem',
+        padding: '1.5rem 1rem',
         position: 'relative'
       }}
     >
-      <div
-        className="glass-panel"
-        style={{
-          maxWidth: '460px',
-          width: '100%',
-          padding: '2.5rem 2.2rem',
-          boxShadow: 'var(--shadow-xl)',
-          background: '#ffffff',
-          borderRadius: '20px',
-          border: '1px solid #e2e8f0'
-        }}
-      >
+      <div className="auth-card">
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div
             style={{

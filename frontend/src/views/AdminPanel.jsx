@@ -77,12 +77,12 @@ export default function AdminPanel() {
   };
 
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+    <div className="view-container">
       {/* Top Header */}
       <div className="hud-card" style={{ marginBottom: '2rem', padding: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.2rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
               <span className="live-beacon" />
               <span className="hud-tag violet">Administration</span>
               <span className="hud-tag cyan">Role: Admin</span>
@@ -90,7 +90,7 @@ export default function AdminPanel() {
             <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, color: '#0f172a' }}>
               System <span className="glow-text-violet">Administration</span>
             </h1>
-            <p style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '0.4rem' }}>
+            <p style={{ color: '#64748b', fontSize: '0.92rem', marginTop: '0.3rem' }}>
               Create system users, manage access roles, and monitor or freeze customer accounts.
             </p>
           </div>
@@ -115,7 +115,7 @@ export default function AdminPanel() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
         {/* Create User Form */}
         <div className="hud-card" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.4rem' }}>

@@ -1,17 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, LogOut, FileText, Activity, Users, Wallet } from 'lucide-react';
+import { ShieldCheck, LogOut, FileText, Activity, Users, Wallet, Menu, X } from 'lucide-react';
 
 /**
  * Navigation Bar Component.
  *
- * Clean, modern light theme with simple understandable navigation.
+ * Fully responsive for both laptops and mobile smartphones.
+ * Features desktop navigation tabs and an intuitive mobile hamburger drawer.
  */
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -22,36 +24,45 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
 
+  const closeMenu = () => setMobileMenuOpen(false);
+
   return (
-    <nav
+    <header
       style={{
         background: '#ffffff',
         borderBottom: '1px solid #e2e8f0',
-        padding: '0.85rem 2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         position: 'sticky',
         top: 0,
-        zIndex: 40
+        zIndex: 50,
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
+      <nav
+        style={{
+          maxWidth: '1240px',
+          margin: '0 auto',
+          padding: '0.75rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+      >
+        {/* Brand Logo */}
         <Link
           to="/dashboard"
+          onClick={closeMenu}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.75rem',
+            gap: '0.65rem',
             textDecoration: 'none',
             color: 'var(--text-primary)'
           }}
         >
           <div
             style={{
-              padding: '0.5rem',
-              borderRadius: '10px',
+              padding: '0.45rem',
+              borderRadius: '9px',
               background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
               display: 'flex',
               alignItems: 'center',
@@ -60,27 +71,28 @@ export default function Navbar() {
               boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
             }}
           >
-            <ShieldCheck size={22} />
+            <ShieldCheck size={20} />
           </div>
           <div>
             <div
               style={{
                 fontWeight: 800,
-                fontSize: '1.25rem',
+                fontSize: '1.15rem',
                 letterSpacing: '-0.02em',
-                color: '#0f172a'
+                color: '#0f172a',
+                lineHeight: 1.1
               }}
             >
               LedgerLine
             </div>
-            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              Secure Double-Entry Ledger
+            <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Secure Ledger
             </div>
           </div>
         </Link>
 
-        {/* Navigation Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {/* Desktop Navigation Links */}
+        <div className="desktop-only" style={{ alignItems: 'center', gap: '0.4rem' }}>
           <Link
             to="/dashboard"
             style={{
@@ -90,10 +102,10 @@ export default function Navbar() {
               color: isActive('/dashboard') ? '#1d4ed8' : '#475569',
               background: isActive('/dashboard') ? '#eff6ff' : 'transparent',
               border: isActive('/dashboard') ? '1px solid #bfdbfe' : '1px solid transparent',
-              padding: '0.5rem 0.9rem',
+              padding: '0.45rem 0.85rem',
               borderRadius: '8px',
               textDecoration: 'none',
-              fontSize: '0.88rem',
+              fontSize: '0.86rem',
               fontWeight: 600,
               transition: 'all 0.15s ease'
             }}
@@ -110,10 +122,10 @@ export default function Navbar() {
               color: isActive('/statements') ? '#1d4ed8' : '#475569',
               background: isActive('/statements') ? '#eff6ff' : 'transparent',
               border: isActive('/statements') ? '1px solid #bfdbfe' : '1px solid transparent',
-              padding: '0.5rem 0.9rem',
+              padding: '0.45rem 0.85rem',
               borderRadius: '8px',
               textDecoration: 'none',
-              fontSize: '0.88rem',
+              fontSize: '0.86rem',
               fontWeight: 600,
               transition: 'all 0.15s ease'
             }}
@@ -131,10 +143,10 @@ export default function Navbar() {
                 color: isActive('/auditor') ? '#1d4ed8' : '#475569',
                 background: isActive('/auditor') ? '#eff6ff' : 'transparent',
                 border: isActive('/auditor') ? '1px solid #bfdbfe' : '1px solid transparent',
-                padding: '0.5rem 0.9rem',
+                padding: '0.45rem 0.85rem',
                 borderRadius: '8px',
                 textDecoration: 'none',
-                fontSize: '0.88rem',
+                fontSize: '0.86rem',
                 fontWeight: 600,
                 transition: 'all 0.15s ease'
               }}
@@ -153,10 +165,10 @@ export default function Navbar() {
                 color: isActive('/admin') ? '#6d28d9' : '#475569',
                 background: isActive('/admin') ? '#f5f3ff' : 'transparent',
                 border: isActive('/admin') ? '1px solid #ddd6fe' : '1px solid transparent',
-                padding: '0.5rem 0.9rem',
+                padding: '0.45rem 0.85rem',
                 borderRadius: '8px',
                 textDecoration: 'none',
-                fontSize: '0.88rem',
+                fontSize: '0.86rem',
                 fontWeight: 600,
                 transition: 'all 0.15s ease'
               }}
@@ -165,47 +177,226 @@ export default function Navbar() {
             </Link>
           )}
         </div>
-      </div>
 
-      {/* Right Controls & Identity */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.35rem 0.75rem',
-            background: '#ecfdf5',
-            border: '1px solid #a7f3d0',
-            borderRadius: '999px',
-            fontSize: '0.74rem',
-            color: '#047857',
-            fontWeight: 700
-          }}
-        >
-          <span className="live-beacon"></span>
-          <span>SYSTEM ACTIVE</span>
+        {/* Desktop User Info & Sign Out */}
+        <div className="desktop-only" style={{ alignItems: 'center', gap: '1rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.25rem 0.65rem',
+              background: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              borderRadius: '999px',
+              fontSize: '0.72rem',
+              color: '#047857',
+              fontWeight: 700
+            }}
+          >
+            <span className="live-beacon"></span>
+            <span>ACTIVE</span>
+          </div>
+
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '0.82rem', color: '#0f172a', fontWeight: 600 }}>
+              {user.email}
+            </div>
+            <span className={`badge ${user.role === 'ADMIN' ? 'badge-violet' : user.role === 'AUDITOR' ? 'badge-cyan' : 'badge-emerald'}`} style={{ fontSize: '0.7rem' }}>
+              {user.role === 'HOLDER' ? 'Customer' : user.role}
+            </span>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="btn btn-secondary"
+            style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            title="Sign out"
+          >
+            <LogOut size={14} />
+            <span>Sign Out</span>
+          </button>
         </div>
 
-        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
-          <div style={{ fontSize: '0.86rem', color: '#0f172a', fontWeight: 600 }}>
-            {user.email}
-          </div>
-          <span className={`badge ${user.role === 'ADMIN' ? 'badge-violet' : user.role === 'AUDITOR' ? 'badge-cyan' : 'badge-emerald'}`}>
+        {/* Mobile Hamburger Toggle */}
+        <div className="mobile-only" style={{ alignItems: 'center', gap: '0.5rem' }}>
+          <span className={`badge ${user.role === 'ADMIN' ? 'badge-violet' : user.role === 'AUDITOR' ? 'badge-cyan' : 'badge-emerald'}`} style={{ fontSize: '0.72rem' }}>
             {user.role === 'HOLDER' ? 'Customer' : user.role}
           </span>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
+            style={{
+              background: '#f1f5f9',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '0.45rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#0f172a',
+              cursor: 'pointer'
+            }}
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
+      </nav>
 
-        <button
-          onClick={handleLogout}
-          className="btn btn-secondary"
-          style={{ padding: '0.45rem 0.85rem', fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-          title="Sign out"
+      {/* Mobile Drawer Navigation */}
+      {mobileMenuOpen && (
+        <div
+          className="mobile-only"
+          style={{
+            flexDirection: 'column',
+            background: '#ffffff',
+            borderTop: '1px solid #e2e8f0',
+            padding: '1rem 1.25rem 1.25rem',
+            gap: '0.6rem',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.08)'
+          }}
         >
-          <LogOut size={15} />
-          <span>Sign Out</span>
-        </button>
-      </div>
-    </nav>
+          {/* User Email & Active Tag on Mobile */}
+          <div
+            style={{
+              padding: '0.65rem 0.85rem',
+              background: '#f8fafc',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0',
+              marginBottom: '0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Signed in as:</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a', wordBreak: 'break-all' }}>
+                {user.email}
+              </div>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.2rem 0.5rem',
+                background: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                borderRadius: '999px',
+                fontSize: '0.68rem',
+                color: '#047857',
+                fontWeight: 700
+              }}
+            >
+              <span className="live-beacon"></span>
+              <span>LIVE</span>
+            </div>
+          </div>
+
+          <Link
+            to="/dashboard"
+            onClick={closeMenu}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              color: isActive('/dashboard') ? '#1d4ed8' : '#334155',
+              background: isActive('/dashboard') ? '#eff6ff' : '#ffffff',
+              border: isActive('/dashboard') ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+              padding: '0.75rem 1rem',
+              borderRadius: '10px',
+              textDecoration: 'none',
+              fontSize: '0.92rem',
+              fontWeight: 600
+            }}
+          >
+            <Wallet size={18} style={{ color: '#2563eb' }} /> My Accounts
+          </Link>
+
+          <Link
+            to="/statements"
+            onClick={closeMenu}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              color: isActive('/statements') ? '#1d4ed8' : '#334155',
+              background: isActive('/statements') ? '#eff6ff' : '#ffffff',
+              border: isActive('/statements') ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+              padding: '0.75rem 1rem',
+              borderRadius: '10px',
+              textDecoration: 'none',
+              fontSize: '0.92rem',
+              fontWeight: 600
+            }}
+          >
+            <FileText size={18} style={{ color: '#2563eb' }} /> Statements & History
+          </Link>
+
+          {(user.role === 'AUDITOR' || user.role === 'ADMIN') && (
+            <Link
+              to="/auditor"
+              onClick={closeMenu}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+                color: isActive('/auditor') ? '#1d4ed8' : '#334155',
+                background: isActive('/auditor') ? '#eff6ff' : '#ffffff',
+                border: isActive('/auditor') ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                padding: '0.75rem 1rem',
+                borderRadius: '10px',
+                textDecoration: 'none',
+                fontSize: '0.92rem',
+                fontWeight: 600
+              }}
+            >
+              <Activity size={18} style={{ color: '#059669' }} /> Audit & Integrity
+            </Link>
+          )}
+
+          {user.role === 'ADMIN' && (
+            <Link
+              to="/admin"
+              onClick={closeMenu}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+                color: isActive('/admin') ? '#6d28d9' : '#334155',
+                background: isActive('/admin') ? '#f5f3ff' : '#ffffff',
+                border: isActive('/admin') ? '1px solid #ddd6fe' : '1px solid #e2e8f0',
+                padding: '0.75rem 1rem',
+                borderRadius: '10px',
+                textDecoration: 'none',
+                fontSize: '0.92rem',
+                fontWeight: 600
+              }}
+            >
+              <Users size={18} style={{ color: '#7c3aed' }} /> Admin Console
+            </Link>
+          )}
+
+          <button
+            onClick={() => { closeMenu(); handleLogout(); }}
+            className="btn btn-secondary mobile-full-width"
+            style={{
+              marginTop: '0.5rem',
+              padding: '0.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              color: '#dc2626',
+              fontWeight: 600
+            }}
+          >
+            <LogOut size={16} /> Sign Out
+          </button>
+        </div>
+      )}
+    </header>
   );
 }

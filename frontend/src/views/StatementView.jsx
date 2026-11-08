@@ -52,12 +52,12 @@ export default function StatementView() {
   }, [selectedAccountId, page]);
 
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+    <div className="view-container">
       {/* Top Header */}
       <div className="hud-card" style={{ marginBottom: '2rem', padding: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.2rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
               <span className="live-beacon" />
               <span className="hud-tag cyan">Statements & History</span>
               <span className="hud-tag emerald">Verified Accuracy</span>
@@ -65,7 +65,7 @@ export default function StatementView() {
             <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, color: '#0f172a' }}>
               Account <span className="glow-text-cyan">Statements</span>
             </h1>
-            <p style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '0.4rem' }}>
+            <p style={{ color: '#64748b', fontSize: '0.92rem', marginTop: '0.3rem' }}>
               Review your detailed transaction records with verified starting and ending balances.
             </p>
           </div>
@@ -79,8 +79,8 @@ export default function StatementView() {
           <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>Filter by Date or Account</h2>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.2rem', alignItems: 'flex-end' }}>
-          <div style={{ minWidth: '240px', flex: 1 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
+          <div style={{ minWidth: 'min(100%, 240px)', flex: '1 1 240px' }}>
             <label style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', marginBottom: '0.4rem', fontWeight: 600 }}>
               Select Account
             </label>
@@ -97,7 +97,7 @@ export default function StatementView() {
             </select>
           </div>
 
-          <div style={{ flex: '1 1 180px' }}>
+          <div style={{ minWidth: 'min(100%, 140px)', flex: '1 1 140px' }}>
             <label style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', marginBottom: '0.4rem', fontWeight: 600 }}>
               Start Date
             </label>
@@ -109,7 +109,7 @@ export default function StatementView() {
             />
           </div>
 
-          <div style={{ flex: '1 1 180px' }}>
+          <div style={{ minWidth: 'min(100%, 140px)', flex: '1 1 140px' }}>
             <label style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', marginBottom: '0.4rem', fontWeight: 600 }}>
               End Date
             </label>
@@ -121,7 +121,7 @@ export default function StatementView() {
             />
           </div>
 
-          <button onClick={() => { setPage(0); fetchStatement(); }} className="btn btn-primary" style={{ padding: '0.75rem 1.4rem' }}>
+          <button onClick={() => { setPage(0); fetchStatement(); }} className="btn btn-primary" style={{ padding: '0.75rem 1.4rem', flex: '1 1 160px', justifyContent: 'center' }}>
             <Calendar size={16} /> Filter Statement
           </button>
         </div>
@@ -202,7 +202,7 @@ export default function StatementView() {
                 No transactions recorded for this period.
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <div className="table-responsive">
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>

@@ -266,7 +266,7 @@ body {
   100% { transform: scale(2.2); opacity: 0; }
 }
 
-/* Modal Overlay */
+/* Modal Overlay & Responsive Content */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -276,7 +276,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: 1rem;
   z-index: 100;
   animation: fadeIn 0.15s ease-out;
 }
@@ -289,10 +289,129 @@ body {
 .modal-content {
   max-width: 540px;
   width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   box-shadow: var(--shadow-xl);
   border-radius: 16px;
+  padding: 2rem;
+}
+
+/* Touch & Responsive Tables */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 0.5rem;
+}
+
+.table-responsive table {
+  min-width: 600px;
+}
+
+/* Auth Cards for Login & Registration */
+.auth-card {
+  max-width: 440px;
+  width: 100%;
+  padding: 2.2rem 2rem;
+  box-shadow: var(--shadow-xl);
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Base Responsive View Container */
+.view-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  width: 100%;
+}
+
+/* Responsive Navbar & Layout Helpers */
+.desktop-only {
+  display: flex;
+}
+
+.mobile-only {
+  display: none;
+}
+
+/* Responsive Breakpoints: Tablet & Mobile (<= 768px) */
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: flex !important;
+  }
+
+  .view-container {
+    padding: 1.25rem 1rem;
+  }
+
+  .glass-panel, .hud-card {
+    padding: 1.25rem 1.1rem !important;
+    border-radius: 14px;
+  }
+
+  .modal-content {
+    padding: 1.4rem 1.2rem !important;
+    border-radius: 14px;
+  }
+
+  h1 {
+    font-size: 1.5rem !important;
+  }
+
+  h2 {
+    font-size: 1.15rem !important;
+  }
+
+  .stat-tile {
+    padding: 1rem !important;
+  }
+
+  .stat-tile .tabular-nums {
+    font-size: 1.5rem !important;
+  }
+
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .mobile-full-width {
+    width: 100% !important;
+  }
+}
+
+/* Extra Small Mobile Devices (<= 480px) */
+@media (max-width: 480px) {
+  .view-container {
+    padding: 1rem 0.75rem;
+  }
+
+  .auth-card {
+    padding: 1.5rem 1.25rem !important;
+    border-radius: 16px;
+  }
+
+  .glass-panel, .hud-card {
+    padding: 1.1rem 0.9rem !important;
+  }
+
+  .btn {
+    padding: 0.65rem 0.9rem;
+    font-size: 0.84rem;
+  }
+
+  .hud-tag {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.45rem;
+  }
 }
 
 /* Clean UI Tags & Stat Tiles */

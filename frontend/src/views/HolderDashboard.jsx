@@ -185,7 +185,7 @@ export default function HolderDashboard() {
   }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+    <div className="view-container">
       {/* Hero Overview Card */}
       <div
         className="glass-panel"
@@ -197,9 +197,9 @@ export default function HolderDashboard() {
           boxShadow: 'var(--shadow-sm)'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.2rem', marginBottom: '1.5rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
               <span className="live-beacon" />
               <span className="hud-tag emerald">Verified & Protected</span>
               <span className="hud-tag cyan">Real-Time Sync</span>
@@ -207,50 +207,50 @@ export default function HolderDashboard() {
             <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
               Account Portfolio
             </h1>
-            <p style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '0.2rem' }}>
+            <p style={{ color: '#64748b', fontSize: '0.92rem', marginTop: '0.2rem' }}>
               All transactions are settled instantly with double-entry precision and duplicate-charge protection.
             </p>
           </div>
 
-          <button onClick={() => openActionModal('CREATE_ACCOUNT')} className="btn btn-primary">
+          <button onClick={() => openActionModal('CREATE_ACCOUNT')} className="btn btn-primary" style={{ flexShrink: 0 }}>
             <Plus size={18} /> Open New Account
           </button>
         </div>
 
         {/* Portfolio Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.2rem', paddingTop: '1.2rem', borderTop: '1px solid #f1f5f9' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '1rem', paddingTop: '1.2rem', borderTop: '1px solid #f1f5f9' }}>
           <div className="stat-tile">
-            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
               Total Portfolio Balance
             </div>
             <div className="tabular-nums" style={{ fontSize: '1.9rem', fontWeight: 800, color: '#2563eb' }}>
               {formatINR(totalBalance)}
             </div>
-            <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.2rem' }}>
               Exact minor units: <code className="mono">{totalBalance.toString()} paise</code>
             </div>
           </div>
 
           <div className="stat-tile">
-            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
               Active Accounts
             </div>
             <div className="tabular-nums" style={{ fontSize: '1.9rem', fontWeight: 800, color: '#0f172a' }}>
               {accounts.length} <span style={{ fontSize: '1rem', color: '#059669', fontWeight: 600 }}>Active</span>
             </div>
-            <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.2rem' }}>
               Selected: <strong style={{ color: '#0f172a' }}>{selectedAccount ? selectedAccount.name : 'None'}</strong>
             </div>
           </div>
 
           <div className="stat-tile">
-            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
               Safety Guarantee
             </div>
             <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#059669', marginTop: '0.2rem' }}>
               Zero-Loss Protected
             </div>
-            <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.4rem' }}>
+            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.4rem' }}>
               Automated lock ordering prevents race conditions
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function HolderDashboard() {
       )}
 
       {/* Account Cards Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <Wallet size={20} style={{ color: '#2563eb' }} />
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
@@ -273,12 +273,12 @@ export default function HolderDashboard() {
           </h2>
         </div>
         <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
-          Click an account to view its activity below
+          Select an account to view transactions
         </span>
       </div>
 
       {/* Account Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 290px), 1fr))', gap: '1.25rem', marginBottom: '2.5rem' }}>
         {accounts.map((acc) => {
           const isSelected = selectedAccount?.id === acc.id;
           return (
@@ -286,7 +286,7 @@ export default function HolderDashboard() {
               key={acc.id}
               className="glass-panel"
               style={{
-                padding: '1.6rem',
+                padding: '1.4rem',
                 cursor: 'pointer',
                 border: isSelected ? '2px solid #2563eb' : '1px solid #e2e8f0',
                 background: '#ffffff',
@@ -294,14 +294,14 @@ export default function HolderDashboard() {
               }}
               onClick={() => setSelectedAccount(acc)}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: isSelected ? '#eff6ff' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: isSelected ? '1px solid #bfdbfe' : '1px solid #e2e8f0', color: isSelected ? '#2563eb' : '#64748b' }}>
-                    <Wallet size={20} />
+                  <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: isSelected ? '#eff6ff' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: isSelected ? '1px solid #bfdbfe' : '1px solid #e2e8f0', color: isSelected ? '#2563eb' : '#64748b' }}>
+                    <Wallet size={18} />
                   </div>
                   <div>
-                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#0f172a', display: 'block' }}>{acc.name}</span>
-                    <span style={{ fontSize: '0.74rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{acc.type} ACCOUNT</span>
+                    <span style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', display: 'block' }}>{acc.name}</span>
+                    <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{acc.type} ACCOUNT</span>
                   </div>
                 </div>
 
@@ -311,20 +311,20 @@ export default function HolderDashboard() {
               </div>
 
               {/* Balance Display */}
-              <div style={{ marginBottom: '1.2rem', padding: '1rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
+              <div style={{ marginBottom: '1rem', padding: '0.9rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
                   Available Balance
                 </div>
-                <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a' }}>
+                <div className="tabular-nums" style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a' }}>
                   {formatINR(acc.balance)}
                 </div>
-                <div style={{ fontSize: '0.74rem', color: '#2563eb', marginTop: '0.2rem' }}>
+                <div style={{ fontSize: '0.72rem', color: '#2563eb', marginTop: '0.2rem' }}>
                   Raw balance: <code className="mono">{acc.balance} paise</code>
                 </div>
               </div>
 
               {/* Account ID with copy */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem', color: '#64748b', marginBottom: '1.2rem', background: '#f1f5f9', padding: '0.45rem 0.75rem', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem', color: '#64748b', marginBottom: '1rem', background: '#f1f5f9', padding: '0.45rem 0.65rem', borderRadius: '8px' }}>
                 <span style={{ fontFamily: 'var(--font-mono)' }}>ID: {acc.id.slice(0, 8)}...{acc.id.slice(-4)}</span>
                 <button
                   type="button"
@@ -337,30 +337,30 @@ export default function HolderDashboard() {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); openActionModal('DEPOSIT', acc); }}
                   disabled={acc.status === 'FROZEN'}
                   className="btn btn-secondary"
-                  style={{ flex: 1, padding: '0.5rem 0.4rem', fontSize: '0.84rem' }}
+                  style={{ flex: '1 1 80px', padding: '0.5rem 0.35rem', fontSize: '0.82rem', justifyContent: 'center' }}
                 >
-                  <ArrowDownLeft size={15} style={{ color: '#059669' }} /> Deposit
+                  <ArrowDownLeft size={14} style={{ color: '#059669' }} /> Deposit
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); openActionModal('WITHDRAW', acc); }}
                   disabled={acc.status === 'FROZEN' || acc.balance <= 0}
                   className="btn btn-secondary"
-                  style={{ flex: 1, padding: '0.5rem 0.4rem', fontSize: '0.84rem' }}
+                  style={{ flex: '1 1 80px', padding: '0.5rem 0.35rem', fontSize: '0.82rem', justifyContent: 'center' }}
                 >
-                  <ArrowUpRight size={15} style={{ color: '#e11d48' }} /> Withdraw
+                  <ArrowUpRight size={14} style={{ color: '#e11d48' }} /> Withdraw
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); openActionModal('TRANSFER', acc); }}
                   disabled={acc.status === 'FROZEN' || acc.balance <= 0}
                   className="btn btn-primary"
-                  style={{ flex: 1, padding: '0.5rem 0.4rem', fontSize: '0.84rem' }}
+                  style={{ flex: '1 1 80px', padding: '0.5rem 0.35rem', fontSize: '0.82rem', justifyContent: 'center' }}
                 >
-                  <Send size={15} /> Transfer
+                  <Send size={14} /> Transfer
                 </button>
               </div>
             </div>
@@ -369,7 +369,7 @@ export default function HolderDashboard() {
       </div>
 
       {/* Activity Section */}
-      <div className="glass-panel" style={{ padding: '2rem', background: '#ffffff' }}>
+      <div className="glass-panel" style={{ padding: '1.8rem', background: '#ffffff' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <Clock size={20} style={{ color: '#2563eb' }} />
@@ -394,7 +394,7 @@ export default function HolderDashboard() {
             No recent activity recorded for this account.
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-responsive">
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>

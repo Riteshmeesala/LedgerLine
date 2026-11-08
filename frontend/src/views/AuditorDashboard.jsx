@@ -66,12 +66,12 @@ export default function AuditorDashboard() {
   }, []);
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+    <div className="view-container">
       {/* Header */}
       <div className="glass-panel" style={{ marginBottom: '2rem', padding: '2rem', background: '#ffffff' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.2rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
               <span className="live-beacon" />
               <span className="hud-tag cyan">Auditor Console</span>
               <span className="hud-tag emerald">Cryptographic Proofs Active</span>
@@ -79,12 +79,12 @@ export default function AuditorDashboard() {
             <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a' }}>
               System Integrity & Conservation
             </h1>
-            <p style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '0.2rem' }}>
+            <p style={{ color: '#64748b', fontSize: '0.92rem', marginTop: '0.2rem' }}>
               Verify cryptographic audit chain blocks and real-time double-entry conservation.
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', width: 'auto' }}>
             <button onClick={() => { fetchConservation(); fetchAuditLogs(); }} className="btn btn-secondary">
               <RefreshCw size={16} /> Refresh
             </button>
@@ -92,7 +92,7 @@ export default function AuditorDashboard() {
               onClick={verifyAuditChain}
               disabled={verifying}
               className="btn btn-primary"
-              style={{ minWidth: '200px' }}
+              style={{ minWidth: 'min(100%, 180px)' }}
             >
               <ShieldCheck size={18} />
               {verifying ? 'Verifying Hashes...' : 'Verify Audit Trail'}
@@ -101,7 +101,7 @@ export default function AuditorDashboard() {
         </div>
 
         {/* Technical Safety Features */}
-        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '1.2rem', paddingTop: '1.2rem', borderTop: '1px solid #f1f5f9' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1.2rem', paddingTop: '1.2rem', borderTop: '1px solid #f1f5f9' }}>
           <div className="hud-tag emerald">
             <Lock size={12} /> Immutable Append-Only Database Triggers
           </div>
@@ -193,16 +193,16 @@ export default function AuditorDashboard() {
             Calculating global balance conservation...
           </div>
         ) : conservation ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1rem' }}>
             {/* Metric 1 */}
             <div className="stat-tile">
               <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' }}>
                 Sum of All Transaction Entries
               </div>
-              <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: conservation.sumOfEntries === 0 ? '#059669' : '#e11d48' }}>
+              <div className="tabular-nums" style={{ fontSize: '1.8rem', fontWeight: 800, color: conservation.sumOfEntries === 0 ? '#059669' : '#e11d48' }}>
                 {formatINR(conservation.sumOfEntries)}
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.4rem' }}>
+              <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.4rem' }}>
                 Credits and debits strictly cancel to 0 paise.
               </div>
             </div>
@@ -212,10 +212,10 @@ export default function AuditorDashboard() {
               <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' }}>
                 Sum of All Account Balances
               </div>
-              <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: conservation.sumOfBalances === 0 ? '#059669' : '#e11d48' }}>
+              <div className="tabular-nums" style={{ fontSize: '1.8rem', fontWeight: 800, color: conservation.sumOfBalances === 0 ? '#059669' : '#e11d48' }}>
                 {formatINR(conservation.sumOfBalances)}
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.4rem' }}>
+              <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.4rem' }}>
                 Customer balances offset against CASH_IN_OUT node.
               </div>
             </div>
@@ -225,10 +225,10 @@ export default function AuditorDashboard() {
               <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' }}>
                 Imbalanced Transfers
               </div>
-              <div className="tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, color: conservation.imbalancedTransferCount === 0 ? '#059669' : '#e11d48' }}>
+              <div className="tabular-nums" style={{ fontSize: '1.8rem', fontWeight: 800, color: conservation.imbalancedTransferCount === 0 ? '#059669' : '#e11d48' }}>
                 {conservation.imbalancedTransferCount}
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.4rem' }}>
+              <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.4rem' }}>
                 Transfers where debits don't equal credits.
               </div>
             </div>
@@ -277,30 +277,30 @@ export default function AuditorDashboard() {
                     style={{
                       background: isBroken ? '#fff1f2' : isVerified ? '#f0fdf4' : '#ffffff',
                       border: isBroken ? '1px solid #fecdd3' : isVerified ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
-                      padding: '1.3rem'
+                      padding: '1.2rem'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '0.6rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                        <span className="badge badge-cyan" style={{ fontSize: '0.78rem' }}>BLOCK #{block.seq}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span className="badge badge-cyan" style={{ fontSize: '0.75rem' }}>BLOCK #{block.seq}</span>
                         <span className="badge badge-violet">{block.action}</span>
-                        <span style={{ fontSize: '0.84rem', color: '#475569' }}>
+                        <span style={{ fontSize: '0.82rem', color: '#475569' }}>
                           {block.entityType}: <code className="mono" style={{ color: '#0f172a' }}>{block.entityId}</code>
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.78rem', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
                         {new Date(block.createdAt).toISOString()}
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.9rem', fontSize: '0.8rem', marginBottom: '0.8rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '0.75rem', fontSize: '0.8rem', marginBottom: '0.8rem' }}>
                       <div style={{ background: '#f8fafc', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
                         <div style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 600, marginBottom: '0.2rem' }}>PREVIOUS HASH:</div>
-                        <code className="mono" style={{ color: '#334155', wordBreak: 'break-all', fontSize: '0.76rem' }}>{block.prevHash}</code>
+                        <code className="mono" style={{ color: '#334155', wordBreak: 'break-all', fontSize: '0.75rem' }}>{block.prevHash}</code>
                       </div>
                       <div style={{ background: '#f8fafc', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
                         <div style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 600, marginBottom: '0.2rem' }}>BLOCK HASH (SHA-256):</div>
-                        <code className="mono" style={{ color: isBroken ? '#be123c' : isVerified ? '#047857' : '#2563eb', wordBreak: 'break-all', fontSize: '0.76rem', fontWeight: 600 }}>
+                        <code className="mono" style={{ color: isBroken ? '#be123c' : isVerified ? '#047857' : '#2563eb', wordBreak: 'break-all', fontSize: '0.75rem', fontWeight: 600 }}>
                           {block.hash}
                         </code>
                       </div>
