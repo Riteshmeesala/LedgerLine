@@ -4,7 +4,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ledgerline.dto.AuditLogEntryDto;
 import com.ledgerline.dto.AuditVerificationResult;
+import com.ledgerline.dto.LedgerEntryTraceDto;
 import com.ledgerline.dto.PageResponse;
+import com.ledgerline.dto.TransferDetailDto;
+import com.ledgerline.dto.TransferTraceDto;
+import com.ledgerline.exception.ResourceNotFoundException;
 import com.ledgerline.util.CanonicalJsonUtil;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -247,6 +251,98 @@ public class AuditService {
         );
 
         return new PageResponse<>(content, boundedPage, boundedSize, totalElements, totalPages);
+    }
+
+    /**
+     * Retrieves complete transfer trace including transfer metadata, bilateral ledger entries,
+     * and associated cryptographic audit log row(s).
+     * Accessible by AUDITOR and ADMIN.
+     */
+    @Transactional(readOnly = true)
+    public TransferTraceDto getTransferTrace(UUID transferId) {
+        // 1. Fetch transfer details
+        List<TransferDetailDto> transfers = jdbcTemplate.query(
+                "SELECT id, kind, from_account, to_account, amount, initiated_by, idempotency_key, created_at " +
+                        "FROM transfers WHERE id = ?",
+                (rs, rowNum) -> new TransferDetailDto(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("kind"),
+                        rs.getObject("from_account", UUID.class),
+                        rs.getObject("to_account", UUID.class),
+                        rs.getLong("amount"),
+                        rs.getObject("initiated_by", UUID.class),
+                        rs.getString("idempotency_key"),
+                        rs.getTimestamp("created_at").toInstant()
+                ),
+                transferId
+        );
+
+        if (transfers.isEmpty()) {
+            throw new ResourceNotFoundException("Transfer not found: " + transferId);
+        }
+        TransferDetailDto transfer = transfers.get(0);
+
+        // 2. Fetch associated ledger entries
+        List<LedgerEntryTraceDto> entries = jdbcTemplate.query(
+                "SELECT id, account_id, amount, balance_after, created_at " +
+                        "FROM ledger_entries WHERE transfer_id = ? ORDER BY id ASC",
+                (rs, rowNum) -> new LedgerEntryTraceDto(
+                        rs.getLong("id"),
+                        rs.getObject("account_id", UUID.class),
+                        rs.getLong("amount"),
+                        rs.getLong("balance_after"),
+                        rs.getTimestamp("created_at").toInstant()
+                ),
+                transferId
+        );
+
+        // 3. Fetch associated audit log entries (linked by entity_id or payload transferId)
+        String transferIdStr = transferId.toString();
+        List<AuditLogEntryDto> auditEntries = jdbcTemplate.query(
+                "SELECT seq, actor_id, actor_role, action, entity_type, entity_id, payload, ip, prev_hash, hash, created_at " +
+                        "FROM audit_log WHERE (entity_type = 'TRANSFER' AND entity_id = ?) OR (payload->>'transferId' = ?) " +
+                        "ORDER BY seq ASC",
+                (rs, rowNum) -> {
+                    long seq = rs.getLong("seq");
+                    UUID actorId = rs.getObject("actor_id", UUID.class);
+                    String actorRole = rs.getString("actor_role");
+                    String action = rs.getString("action");
+                    String entityType = rs.getString("entity_type");
+                    String entityId = rs.getString("entity_id");
+                    String payloadStr = rs.getString("payload");
+                    Map<String, Object> payloadMap = null;
+                    if (payloadStr != null) {
+                        try {
+                            payloadMap = objectMapper.readValue(payloadStr, new TypeReference<>() {});
+                        } catch (Exception ignored) {
+                            payloadMap = Collections.emptyMap();
+                        }
+                    }
+                    String ip = rs.getString("ip");
+                    String prevHash = rs.getString("prev_hash");
+                    String hash = rs.getString("hash");
+                    Timestamp ts = rs.getTimestamp("created_at");
+                    Instant createdAt = ts != null ? ts.toInstant() : Instant.now();
+
+                    return new AuditLogEntryDto(
+                            seq,
+                            actorId,
+                            actorRole,
+                            action,
+                            entityType,
+                            entityId,
+                            payloadMap,
+                            ip,
+                            prevHash,
+                            hash,
+                            createdAt
+                    );
+                },
+                transferIdStr,
+                transferIdStr
+        );
+
+        return new TransferTraceDto(transfer, entries, auditEntries);
     }
 
     public static String computeHash(

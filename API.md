@@ -405,6 +405,78 @@ curl -X GET http://localhost:8080/api/audit/verify \
 
 ---
 
+### 5.3 Transfer Forensic Trace (`GET /api/audit/transfers/{transferId}`)
+Returns a forensic drill-down for a transfer: transfer intent, symmetric double-entry ledger items with balances after, and cryptographically chained audit blocks with SHA-256 hashes. Restricted to `AUDITOR` and `ADMIN`.
+
+```bash
+curl -X GET http://localhost:8080/api/audit/transfers/a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d \
+  -H "Authorization: Bearer <AUDITOR_TOKEN>"
+```
+
+**Response (HTTP 200 OK)**:
+```json
+{
+  "transfer": {
+    "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+    "kind": "TRANSFER",
+    "fromAccount": "11111111-1111-1111-1111-111111111111",
+    "toAccount": "22222222-2222-2222-2222-222222222222",
+    "amount": 25000,
+    "initiatedBy": "c56a4180-65aa-42ec-a945-5fd21dec0538",
+    "idempotencyKey": "trans-uuid-9901",
+    "createdAt": "2026-11-08T16:40:00Z"
+  },
+  "entries": [
+    {
+      "id": 101,
+      "accountId": "11111111-1111-1111-1111-111111111111",
+      "amount": -25000,
+      "balanceAfter": 75000,
+      "createdAt": "2026-11-08T16:40:00Z"
+    },
+    {
+      "id": 102,
+      "accountId": "22222222-2222-2222-2222-222222222222",
+      "amount": 25000,
+      "balanceAfter": 25000,
+      "createdAt": "2026-11-08T16:40:00Z"
+    }
+  ],
+  "auditEntries": [
+    {
+      "seq": 45,
+      "actorId": "c56a4180-65aa-42ec-a945-5fd21dec0538",
+      "actorRole": "HOLDER",
+      "action": "TRANSFER",
+      "entityType": "TRANSFER",
+      "entityId": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      "payload": {
+        "kind": "TRANSFER",
+        "amountMinor": 25000,
+        "fromAccountId": "11111111-1111-1111-1111-111111111111",
+        "toAccountId": "22222222-2222-2222-2222-222222222222"
+      },
+      "ip": "127.0.0.1",
+      "prevHash": "3b2e5...00",
+      "hash": "7a9f1...88",
+      "createdAt": "2026-11-08T16:40:00Z"
+    }
+  ]
+}
+```
+
+**Error Response (HTTP 404 Not Found)**:
+```json
+{
+  "type": "about:blank",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Transfer not found: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+}
+```
+
+---
+
 ## 6. Administrative Operations
 
 ### 6.1 Provision User (`POST /api/admin/users`)

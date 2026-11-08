@@ -4,7 +4,7 @@ import { formatINR } from '../utils/money';
 import { 
   Activity, ShieldCheck, ShieldAlert, CheckCircle2, RefreshCw, 
   Link2, AlertTriangle, Layers, Lock, Cpu, Database, Search,
-  Download, Copy, Check, Filter, Sparkles
+  Download, Copy, Check, Filter, Sparkles, ArrowUpRight, ArrowDownLeft, X, Key, GitCommit
 } from 'lucide-react';
 
 /**
@@ -25,6 +25,37 @@ export default function AuditorDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const [copiedHash, setCopiedHash] = useState(null);
+
+  // Feature 1: Transfer Trace State
+  const [traceId, setTraceId] = useState('');
+  const [traceLoading, setTraceLoading] = useState(false);
+  const [traceError, setTraceError] = useState(null);
+  const [traceResult, setTraceResult] = useState(null);
+  const [copiedTraceId, setCopiedTraceId] = useState(null);
+
+  const handleTraceTransfer = async (e, idOverride = null) => {
+    if (e) e.preventDefault();
+    const idToSearch = (idOverride || traceId).trim();
+    if (!idToSearch) return;
+    setTraceLoading(true);
+    setTraceError(null);
+    setTraceResult(null);
+    try {
+      const res = await apiClient(`/api/audit/transfers/${idToSearch}`);
+      setTraceResult(res);
+      setTraceId(idToSearch);
+    } catch (err) {
+      setTraceError(err.detail || err.message || 'Transfer not found or invalid format.');
+    } finally {
+      setTraceLoading(false);
+    }
+  };
+
+  const handleClearTrace = () => {
+    setTraceId('');
+    setTraceResult(null);
+    setTraceError(null);
+  };
 
   const fetchConservation = async () => {
     setConservationLoading(true);
@@ -293,6 +324,187 @@ export default function AuditorDashboard() {
             </div>
           </div>
         ) : null}
+      </div>
+
+      {/* Feature 1: AUDITOR Transfer Trace & Forensic Search */}
+      <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', background: '#ffffff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+            <GitCommit size={22} style={{ color: '#0284c7' }} />
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                Auditor Transfer Trace & Forensic Drill-Down
+              </h2>
+              <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                Trace any transfer ID across bilateral ledger journal entries and cryptographic audit hash blocks
+              </span>
+            </div>
+          </div>
+          <span className="hud-tag cyan">Auditor & Admin Only</span>
+        </div>
+
+        {/* Search Input Box */}
+        <form onSubmit={handleTraceTransfer} style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 'min(100%, 280px)' }}>
+            <Search size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <input
+              type="text"
+              placeholder="Paste Transfer UUID (e.g. 123e4567-e89b-12d3-a456-426614174000)..."
+              value={traceId}
+              onChange={(e) => setTraceId(e.target.value)}
+              className="input-field"
+              style={{ paddingLeft: '2.5rem', fontFamily: 'monospace', fontSize: '0.85rem' }}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={traceLoading || !traceId.trim()}
+            className="btn btn-primary"
+            style={{ padding: '0.55rem 1.25rem' }}
+          >
+            {traceLoading ? 'Tracing...' : 'Trace Transfer'}
+          </button>
+          {(traceResult || traceError || traceId) && (
+            <button
+              type="button"
+              onClick={handleClearTrace}
+              className="btn btn-secondary"
+              style={{ padding: '0.55rem 1rem' }}
+            >
+              <X size={15} /> Clear
+            </button>
+          )}
+        </form>
+
+        {/* Quick-Pick recent transfers from loaded audit blocks if available */}
+        {auditLogs.some(l => l.action === 'TRANSFER' || l.action === 'DEPOSIT' || l.action === 'WITHDRAWAL') && !traceResult && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.78rem', color: '#64748b', marginBottom: '1rem' }}>
+            <span>Quick-trace recent:</span>
+            {auditLogs
+              .filter(l => l.entityType === 'TRANSFER' && l.entityId)
+              .slice(0, 3)
+              .map(l => (
+                <button
+                  key={l.seq}
+                  type="button"
+                  onClick={(e) => handleTraceTransfer(e, l.entityId)}
+                  className="badge badge-cyan"
+                  style={{ cursor: 'pointer', fontFamily: 'monospace', border: '1px solid #bae6fd' }}
+                >
+                  {l.entityId.slice(0, 8)}... ({l.action})
+                </button>
+              ))}
+          </div>
+        )}
+
+        {/* Error Message */}
+        {traceError && (
+          <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '10px', padding: '0.85rem 1.1rem', color: '#be123c', display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+            <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '0.86rem', fontWeight: 600 }}>{traceError}</span>
+          </div>
+        )}
+
+        {/* Trace Result Detail Card */}
+        {traceResult && (
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', marginTop: '1rem' }}>
+            {/* Transfer Intent Meta Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1.2rem', marginBottom: '1.2rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                  <span className={`badge ${traceResult.transfer.kind === 'DEPOSIT' ? 'badge-emerald' : traceResult.transfer.kind === 'WITHDRAWAL' ? 'badge-amber' : 'badge-cyan'}`}>
+                    {traceResult.transfer.kind}
+                  </span>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
+                    {formatINR(traceResult.transfer.amount)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'monospace', fontSize: '0.82rem', color: '#334155' }}>
+                  <span>ID: {traceResult.transfer.id}</span>
+                  <button
+                    type="button"
+                    onClick={() => { navigator.clipboard.writeText(traceResult.transfer.id); setCopiedTraceId(traceResult.transfer.id); setTimeout(() => setCopiedTraceId(null), 2000); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                  >
+                    {copiedTraceId === traceResult.transfer.id ? <Check size={14} style={{ color: '#059669' }} /> : <Copy size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'right', fontSize: '0.78rem', color: '#64748b' }}>
+                <div>Initiated by: <code style={{ color: '#0f172a' }}>{traceResult.transfer.initiatedBy?.slice(0, 8)}...</code></div>
+                <div>Idempotency Key: <code style={{ color: '#0f172a' }}>{traceResult.transfer.idempotencyKey}</code></div>
+                <div>Settled: {new Date(traceResult.transfer.createdAt).toLocaleString()}</div>
+              </div>
+            </div>
+
+            {/* Bilateral Double-Entry Journal Table */}
+            <div style={{ marginBottom: '1.4rem' }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Layers size={16} style={{ color: '#2563eb' }} /> Symmetric Double-Entry Journal
+              </h3>
+              <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', color: '#475569', textAlign: 'left' }}>
+                      <th style={{ padding: '0.6rem 0.8rem' }}>Entry ID</th>
+                      <th style={{ padding: '0.6rem 0.8rem' }}>Account ID</th>
+                      <th style={{ padding: '0.6rem 0.8rem' }}>Signed Amount</th>
+                      <th style={{ padding: '0.6rem 0.8rem' }}>Balance After</th>
+                      <th style={{ padding: '0.6rem 0.8rem' }}>Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {traceResult.entries.map((entry) => (
+                      <tr key={entry.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '0.6rem 0.8rem', fontFamily: 'monospace' }}>#{entry.id}</td>
+                        <td style={{ padding: '0.6rem 0.8rem', fontFamily: 'monospace' }}>{entry.accountId}</td>
+                        <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700, color: entry.amount >= 0 ? '#059669' : '#dc2626' }}>
+                          {entry.amount >= 0 ? `+${formatINR(entry.amount)}` : `-${formatINR(Math.abs(entry.amount))}`}
+                        </td>
+                        <td style={{ padding: '0.6rem 0.8rem', fontWeight: 600 }}>{formatINR(entry.balanceAfter)}</td>
+                        <td style={{ padding: '0.6rem 0.8rem', color: '#64748b' }}>{new Date(entry.createdAt).toLocaleTimeString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Linked Cryptographic Audit Log Entries */}
+            <div>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Link2 size={16} style={{ color: '#7c3aed' }} /> Linked Cryptographic Audit Receipt(s)
+              </h3>
+              {traceResult.auditEntries.length === 0 ? (
+                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>No audit rows explicitly linked.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {traceResult.auditEntries.map((a) => (
+                    <div key={a.seq} style={{ background: '#ffffff', border: '1px solid #ddd6fe', borderRadius: '8px', padding: '0.8rem 1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span className="badge badge-violet" style={{ fontFamily: 'monospace' }}>Block #{a.seq}</span>
+                          <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a' }}>{a.action}</span>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>by {a.actorRole} ({a.actorId?.slice(0, 8)}...)</span>
+                        </div>
+                        <span style={{ fontSize: '0.74rem', color: '#64748b' }}>{new Date(a.createdAt).toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '0.4rem', fontFamily: 'monospace', fontSize: '0.74rem', color: '#475569' }}>
+                        <div style={{ wordBreak: 'break-all' }}>
+                          <span style={{ color: '#94a3b8' }}>Prev: </span>{a.prevHash}
+                        </div>
+                        <div style={{ wordBreak: 'break-all' }}>
+                          <span style={{ color: '#7c3aed', fontWeight: 700 }}>Hash: </span>{a.hash}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Hash-Chain Visualizer */}

@@ -302,4 +302,100 @@ public class AuditAndStatementsSecurityTest {
                         .header("Authorization", "Bearer " + otherHolderToken))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    @DisplayName("Claim 4 Proof: ADMIN can access all auditor endpoints")
+    void adminCanAccessAllAuditorEndpoints() throws Exception {
+        mockMvc.perform(get("/api/audit")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+
+        mockMvc.perform(get("/api/audit/verify")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").isBoolean());
+
+        mockMvc.perform(get("/api/ledger/conservation")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.healthy").value(true));
+    }
+
+    @Test
+    @DisplayName("Feature 1: AUDITOR and ADMIN can trace a transfer with ledger entries and audit hashes")
+    void transferTraceSucceedsForAuditorAndAdminWithEntriesAndAuditHashes() throws Exception {
+        // 1. Perform deposit to generate transfer, ledger entries, and audit log row
+        String depositResp = mockMvc.perform(post("/api/accounts/{id}/deposits", accountId)
+                        .header("Authorization", "Bearer " + holderToken)
+                        .header("Idempotency-Key", "trace-dep-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountMinor\": 25000}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        Map<String, Object> respMap = objectMapper.readValue(depositResp, Map.class);
+        String transferIdStr = (String) respMap.get("transferId");
+        assertNotNull(transferIdStr, "transferId must be returned in deposit response");
+        UUID transferId = UUID.fromString(transferIdStr);
+
+        // 2. Query trace endpoint as AUDITOR
+        mockMvc.perform(get("/api/audit/transfers/{transferId}", transferId)
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transfer.id").value(transferIdStr))
+                .andExpect(jsonPath("$.transfer.kind").value("DEPOSIT"))
+                .andExpect(jsonPath("$.transfer.amount").value(25000))
+                .andExpect(jsonPath("$.entries", hasSize(2)))
+                .andExpect(jsonPath("$.entries[0].balanceAfter").isNumber())
+                .andExpect(jsonPath("$.entries[1].balanceAfter").isNumber())
+                .andExpect(jsonPath("$.auditEntries", not(empty())))
+                .andExpect(jsonPath("$.auditEntries[0].hash").isString())
+                .andExpect(jsonPath("$.auditEntries[0].prevHash").isString());
+
+        // 3. Query trace endpoint as ADMIN
+        mockMvc.perform(get("/api/audit/transfers/{transferId}", transferId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transfer.id").value(transferIdStr));
+    }
+
+    @Test
+    @DisplayName("Feature 1 Security: Transfer trace returns 404 for unknown transfer UUID")
+    void transferTraceReturns404ForUnknownTransfer() throws Exception {
+        UUID unknownId = UUID.randomUUID();
+        mockMvc.perform(get("/api/audit/transfers/{transferId}", unknownId)
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.title").value("Not Found"));
+    }
+
+    @Test
+    @DisplayName("Feature 1 Security: HOLDER role is rejected with 403 Forbidden on transfer trace")
+    void transferTraceReturns403ForHolderRole() throws Exception {
+        mockMvc.perform(get("/api/audit/transfers/{transferId}", UUID.randomUUID())
+                        .header("Authorization", "Bearer " + holderToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.title").value("Forbidden"));
+    }
+
+    @Test
+    @DisplayName("Feature 1 Security: Unauthenticated request is rejected with 401 Unauthorized")
+    void transferTraceReturns401ForUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/audit/transfers/{transferId}", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"));
+    }
+
+    @Test
+    @DisplayName("Feature 1 Validation: Malformed UUID returns 422 Unprocessable Entity")
+    void transferTraceReturns422ForMalformedUuid() throws Exception {
+        mockMvc.perform(get("/api/audit/transfers/not-a-valid-uuid")
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.status").value(422));
+    }
 }
