@@ -143,3 +143,26 @@ This document provides a factual, chronological log of all AI-assisted engineeri
   Ensured all 13 threats in `THREATS.md` mapped to actual existing test method names in the test suite rather than hypothetical test names.
 - **Remediation / Final Solution**:  
   Cross-referenced and verified every test method name against the Java test files in `backend/ledgerline/src/test/java/`.
+
+---
+
+### Entry 10: 2026-11-08 to 2026-11-09 — Feature Session: 8 Core Features, Security Governance & Extended Attack Suite
+- **Prompt Given**:  
+  "FEATURE SESSION: LedgerLine. Follow workspace rules. Implement all 8 features: (1) Auditor Transfer Trace, (2) Auditor Reconciliation Report, (3) Auditor Security Events & CSV Export, (4) Admin Freeze/Unfreeze Reason Mandate (3-200 chars), (5) Admin Disable/Enable User Governance, (6) Admin Unlock User, (7) Holder Inactivity Watchdog, (8) Holder My Activity Tape with IDOR isolation. Extend attack suite and verify all test suites pass."
+- **Output Produced**:  
+  Implemented all 8 backend endpoints, security access policies, and corresponding dark-glass UI consoles across `AdminPanel.jsx`, `AuditorDashboard.jsx`, and `HolderDashboard.jsx`. Extended `attack_suite.ps1` with Attack 11 (64/64 tests passing), added JUnit and Vitest suites, and seeded demo accounts.
+- **Issues / Deviations Caught**:  
+  1. *Foreign Key on Audit Log Actor*: Inserting raw random UUIDs into `audit_log` failed with `DataIntegrityViolationException` because of `FOREIGN KEY (actor_id) REFERENCES users(id)`. Fixed by using persisted test user UUIDs.
+  2. *Inactivity Watchdog Re-trigger*: Listing `showWarning` in `useEffect` dependency array reset the inactivity timer upon rendering the modal, preventing auto-logout countdown. Fixed by removing modal state from activity listener dependencies.
+  3. *Unseeded Demo Stakeholders*: Demo quick-fill personas returned 401 because `DatabaseSeeder.java` lacked matching default configuration in `application-dev.yml`. Resolved by binding seed passwords and executing initial double-entry deposits.
+  4. *Lockout Status Code Expectation*: Penetration test expected HTTP 423 for account lockout, but LedgerLine's anti-enumeration design deliberately returns HTTP 401 Unauthorized (`isUnauthorized()`). Aligned penetration test to assert HTTP 401.
+- **Associated Commits**:  
+  - `a2cdc71` — Feature 1 (Transfer trace endpoint & forensic drill-down)
+  - `37c4ccb` — Feature 2 (Reconciliation report & UI table)
+  - `61a2d32` — Feature 3 (Security event filters & CSV export)
+  - `f89cfae` — Feature 4 (Freeze reason mandate 3-200 chars)
+  - `b199d65` — Feature 5 (Admin disable/enable user governance)
+  - `357ac92` — Feature 6 (Admin unlock user & lockout reset)
+  - `201f2a6` — Feature 7 (Holder inactivity auto-logout watchdog)
+  - `8d3ef8e` — Feature 8 (Holder my security activity endpoint)
+  - `aa006c3` — Fix demo persona seeding, empty account onboarding, and extend attack suite
