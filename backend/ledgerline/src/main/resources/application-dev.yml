@@ -12,3 +12,8 @@ ledgerline:
     secret: ${JWT_SECRET:dev_mode_only_secret_key_at_least_32_bytes_long_abcdef123456}
   cors:
     allowed-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+  seed:
+    admin-password: ${SEED_ADMIN_PASSWORD:vy92gTVe8SwXZkKHXhd8}
+    auditor-password: ${SEED_AUDITOR_PASSWORD:rrEqyGnA3bkCakTbc%x7}
+    holder1-password: ${SEED_HOLDER1_PASSWORD:hG#5b!hL6!md9N-8e9YP}
+    holder2-password: ${SEED_HOLDER2_PASSWORD:HolderTwoPass123!}

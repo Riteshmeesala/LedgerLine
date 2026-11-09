@@ -527,6 +527,21 @@ export default function StatementView() {
             </div>
           )}
         </div>
+      ) : accounts.length === 0 ? (
+        <div className="glass-panel" style={{ padding: '3rem 2rem', textAlign: 'center', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#eff6ff', color: '#2563eb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+            <FileText size={24} />
+          </div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.4rem' }}>
+            No Ledger Accounts Found
+          </h3>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '420px', margin: '0 auto 1.2rem' }}>
+            Please open an account from your Dashboard to generate reconciled double-entry statements.
+          </p>
+          <a href="/dashboard" className="btn btn-primary" style={{ display: 'inline-flex', textDecoration: 'none' }}>
+            Go to Dashboard
+          </a>
+        </div>
       ) : null}
     </div>
   );

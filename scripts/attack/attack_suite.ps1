@@ -253,6 +253,7 @@ Report-Result "3.4" "JWT with wrong key signature rejected with 401" $r.StatusCo
 
 # 3.5 Disabled User Token
 $disabledUid = [guid]::NewGuid().ToString()
+$env:PGPASSWORD = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { "root" }
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U root -p 5433 -h 127.0.0.1 -d ledgerline_db -c "INSERT INTO users (id, email, password_hash, role, enabled) VALUES ('$disabledUid', 'disabled-$uid@test.local', 'hash', 'HOLDER', false);" > $null 2>&1
 $disabledToken = Get-JwtToken -subject $disabledUid -role "HOLDER"
 $r = Invoke-Api -Method "GET" -Path "/api/accounts" -Token $disabledToken
@@ -372,14 +373,14 @@ $r = Invoke-Api -Method "POST" -Path "/api/transfers" -Token $token1 -Idempotenc
 Report-Result "8.1" "Self-transfer rejected with 422" $r.StatusCode 422
 
 # 8.2 Frozen Account Transfer
-$freezeRes = Invoke-Api -Method "POST" -Path "/api/admin/accounts/$acc1/freeze" -Token $adminToken
+$freezeRes = Invoke-Api -Method "POST" -Path "/api/admin/accounts/$acc1/freeze" -Token $adminToken -Body "{`"reason`":`"Automated penetration freeze verification`"}"
 Report-Result "8.2a" "Admin freeze account returns 200" $freezeRes.StatusCode 200
 
 $r = Invoke-Api -Method "POST" -Path "/api/transfers" -Token $token1 -IdempotencyKey ([guid]::NewGuid().ToString()) -Body "{`"fromAccountId`":`"$acc1`",`"toAccountId`":`"$acc2`",`"amountMinor`": 500}"
 Report-Result "8.2b" "Transfer from FROZEN account rejected with 422" $r.StatusCode 422
 
 # Unfreeze account
-$unfreezeRes = Invoke-Api -Method "POST" -Path "/api/admin/accounts/$acc1/unfreeze" -Token $adminToken
+$unfreezeRes = Invoke-Api -Method "POST" -Path "/api/admin/accounts/$acc1/unfreeze" -Token $adminToken -Body "{`"reason`":`"Automated penetration unfreeze verification`"}"
 Report-Result "8.2c" "Admin unfreeze account returns 200" $unfreezeRes.StatusCode 200
 
 # ==============================================================================
@@ -425,6 +426,129 @@ $auditLog = Invoke-Api -Method "GET" -Path "/api/audit?page=0&size=50" -Token $a
 $auditEntries = ($auditLog.Content | ConvertFrom-Json).content
 $hasEntries = ($auditEntries.Count -gt 0)
 Report-Result "10.3" "Audit log contains records of executed operations" $auditLog.StatusCode 200 $hasEntries "Total Logged: $($auditEntries.Count)"
+
+# ==============================================================================
+# ATTACK 11: Feature Session Endpoints (Features 1 to 8: Forensic Trace,
+#            Reconciliation, Audit CSV, Reason Mandates, Governance, Lockout, Activity)
+# ==============================================================================
+Write-Host "`n--- ATTACK 11: Feature Session Endpoints & Security Controls ---" -ForegroundColor Cyan
+
+# 11.1 AUDITOR Transfer Trace (Feature 1)
+$traceKey = [guid]::NewGuid().ToString()
+$traceTransferRes = Invoke-Api -Method "POST" -Path "/api/transfers" -Token $token1 -IdempotencyKey $traceKey -Body "{`"fromAccountId`":`"$acc1`",`"toAccountId`":`"$acc2`",`"amountMinor`": 1500}"
+$traceTransferId = ($traceTransferRes.Content | ConvertFrom-Json).transferId
+
+$r = Invoke-Api -Method "GET" -Path "/api/audit/transfers/$traceTransferId" -Token $token1
+Report-Result "11.1a" "Holder calling /api/audit/transfers/{id} rejected with 403" $r.StatusCode 403
+
+$r = Invoke-Api -Method "GET" -Path "/api/audit/transfers/$traceTransferId" -Token $auditorToken
+$traceObj = if ($r.StatusCode -eq 200) { $r.Content | ConvertFrom-Json } else { $null }
+$hasTraceEntries = ($traceObj -ne $null) -and ($traceObj.entries.Count -ge 2) -and ($traceObj.auditEntries.Count -ge 1)
+Report-Result "11.1b" "Auditor GET /api/audit/transfers/{id} returns double-entry and audit blocks" $r.StatusCode 200 $hasTraceEntries
+
+$r = Invoke-Api -Method "GET" -Path "/api/audit/transfers/00000000-0000-0000-0000-000000000999" -Token $auditorToken
+Report-Result "11.1c" "Auditor GET unknown transfer returns 404 Problem Details" $r.StatusCode 404
+
+# 11.2 AUDITOR Reconciliation Report (Feature 2)
+$r = Invoke-Api -Method "GET" -Path "/api/ledger/reconciliation" -Token $token1
+Report-Result "11.2a" "Holder calling /api/ledger/reconciliation rejected with 403" $r.StatusCode 403
+
+$r = Invoke-Api -Method "GET" -Path "/api/ledger/reconciliation" -Token $auditorToken
+$reconObj = if ($r.StatusCode -eq 200) { $r.Content | ConvertFrom-Json } else { $null }
+$reconValid = ($reconObj -ne $null) -and ($reconObj.overallHealthy -eq $true) -and ($reconObj.accounts.content.Count -gt 0)
+Report-Result "11.2b" "Auditor GET /api/ledger/reconciliation returns verified balance consistency" $r.StatusCode 200 $reconValid
+
+$r = Invoke-Api -Method "GET" -Path "/api/ledger/reconciliation?size=200" -Token $auditorToken
+$reconCapObj = if ($r.StatusCode -eq 200) { $r.Content | ConvertFrom-Json } else { $null }
+$isCapped100 = ($reconCapObj -ne $null) -and ($reconCapObj.accounts.size -le 100)
+Report-Result "11.2c" "Reconciliation pagination size is strictly capped at <= 100" $r.StatusCode 200 $isCapped100
+
+# 11.3 AUDITOR Security Events & CSV Export (Feature 3)
+$r = Invoke-Api -Method "GET" -Path "/api/audit" -Token $token1
+Report-Result "11.3a" "Holder calling /api/audit rejected with 403" $r.StatusCode 403
+
+$r = Invoke-Api -Method "GET" -Path "/api/audit/export" -Token $token1
+Report-Result "11.3b" "Holder calling /api/audit/export rejected with 403" $r.StatusCode 403
+
+$r = Invoke-Api -Method "GET" -Path "/api/audit?action=TRANSFER&outcome=SUCCESS" -Token $auditorToken
+Report-Result "11.3c" "Auditor filtered audit log query returns 200" $r.StatusCode 200
+
+$r = Invoke-Api -Method "GET" -Path "/api/audit/export" -Token $auditorToken
+$isCsv = $r.Content.Contains("Seq,Actor ID") -or ($r.Headers["Content-Type"] -like "*text/csv*")
+Report-Result "11.3d" "Auditor GET /api/audit/export returns RFC-compliant CSV" $r.StatusCode 200 $isCsv
+
+# 11.4 ADMIN Freeze/Unfreeze Reason Mandate (Feature 4)
+$r = Invoke-Api -Method "POST" -Path "/api/admin/accounts/$acc1/freeze" -Token $adminToken
+Report-Result "11.4a" "Freeze without reason body rejected with 400" $r.StatusCode 400
+
+$r = Invoke-Api -Method "POST" -Path "/api/admin/accounts/$acc1/freeze" -Token $adminToken -Body "{`"reason`":`"no`"}"
+Report-Result "11.4b" "Freeze with reason < 3 chars rejected with 400" $r.StatusCode 400
+
+$r = Invoke-Api -Method "POST" -Path "/api/admin/accounts/$acc1/unfreeze" -Token $adminToken
+Report-Result "11.4c" "Unfreeze without reason body rejected with 400" $r.StatusCode 400
+
+# 11.5 ADMIN User Enable/Disable Governance (Feature 5)
+$targetEmail = "target-$uid@atk.local"
+$targetReg = Invoke-Api -Method "POST" -Path "/api/auth/register" -Body "{`"email`":`"$targetEmail`",`"password`":`"Password123!`"}"
+$targetId = ($targetReg.Content | ConvertFrom-Json).userId
+$targetToken = ($targetReg.Content | ConvertFrom-Json).token
+
+$r = Invoke-Api -Method "POST" -Path "/api/admin/users/$targetId/disable" -Token $token1
+Report-Result "11.5a" "Holder calling /api/admin/users/{id}/disable rejected with 403" $r.StatusCode 403
+
+$r = Invoke-Api -Method "POST" -Path "/api/admin/users/$targetId/disable" -Token $adminToken
+Report-Result "11.5b" "Admin disable user returns 200" $r.StatusCode 200
+
+# Target user token must immediately be rejected with 401 Unauthorized
+$r = Invoke-Api -Method "GET" -Path "/api/me" -Token $targetToken
+Report-Result "11.5c" "Disabled user existing token immediately rejected with 401" $r.StatusCode 401
+
+$r = Invoke-Api -Method "POST" -Path "/api/admin/users/$targetId/enable" -Token $adminToken
+Report-Result "11.5d" "Admin re-enable user returns 200" $r.StatusCode 200
+
+# 11.6 ADMIN Unlock User (Feature 6)
+# Trigger 5 failed logins to lock target account
+for ($f = 1; $f -le 5; $f++) {
+    $null = Invoke-Api -Method "POST" -Path "/api/auth/login" -Body "{`"email`":`"$targetEmail`",`"password`":`"WrongPass999!`"}"
+}
+$lockedRes = Invoke-Api -Method "POST" -Path "/api/auth/login" -Body "{`"email`":`"$targetEmail`",`"password`":`"Password123!`"}"
+Report-Result "11.6a" "Account locked after 5 failed logins rejects valid credentials (HTTP 401)" $lockedRes.StatusCode 401
+
+$r = Invoke-Api -Method "POST" -Path "/api/admin/users/$targetId/unlock" -Token $token1
+Report-Result "11.6b" "Holder calling /api/admin/users/{id}/unlock rejected with 403" $r.StatusCode 403
+
+$r = Invoke-Api -Method "POST" -Path "/api/admin/users/$targetId/unlock" -Token $adminToken
+$unlockObj = if ($r.StatusCode -eq 200) { $r.Content | ConvertFrom-Json } else { $null }
+$isUnlocked = ($unlockObj -ne $null) -and ($unlockObj.unlocked -eq $true) -and ($unlockObj.failedLogins -eq 0)
+Report-Result "11.6c" "Admin unlock user returns 200 and resets failed logins" $r.StatusCode 200 $isUnlocked
+
+$loginAfterUnlock = Invoke-Api -Method "POST" -Path "/api/auth/login" -Body "{`"email`":`"$targetEmail`",`"password`":`"Password123!`"}"
+Report-Result "11.6d" "User can immediately login after admin unlock (HTTP 200)" $loginAfterUnlock.StatusCode 200
+
+# 11.7 HOLDER My Activity (Feature 8)
+$r = Invoke-Api -Method "GET" -Path "/api/me/activity"
+Report-Result "11.7a" "Unauthenticated GET /api/me/activity rejected with 401" $r.StatusCode 401
+
+$r = Invoke-Api -Method "GET" -Path "/api/me/activity" -Token $token1
+$actObj = if ($r.StatusCode -eq 200) { $r.Content | ConvertFrom-Json } else { $null }
+$hasMyActivity = ($actObj -ne $null) -and ($actObj.content.Count -gt 0)
+Report-Result "11.7b" "Holder 1 GET /api/me/activity returns personal activity tape" $r.StatusCode 200 $hasMyActivity
+
+# IDOR probe: Holder 1 supplies actorId query parameter pointing to Holder 2
+$r = Invoke-Api -Method "GET" -Path "/api/me/activity?actorId=$h2Id" -Token $token1
+$idorObj = if ($r.StatusCode -eq 200) { $r.Content | ConvertFrom-Json } else { $null }
+$allMine = $true
+if ($idorObj -ne $null -and $idorObj.content.Count -gt 0) {
+    foreach ($entry in $idorObj.content) {
+        if ($entry.actorId -ne $h1Id) { $allMine = $false }
+    }
+}
+Report-Result "11.7c" "IDOR parameter ignored: caller only receives own activity" $r.StatusCode 200 $allMine
+
+$r = Invoke-Api -Method "GET" -Path "/api/me/activity?size=200" -Token $token1
+$actCapObj = if ($r.StatusCode -eq 200) { $r.Content | ConvertFrom-Json } else { $null }
+$isActivityCapped = ($actCapObj -ne $null) -and ($actCapObj.size -le 100)
+Report-Result "11.7d" "Activity pagination size is strictly capped at <= 100" $r.StatusCode 200 $isActivityCapped
 
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host " ATTACK SUITE SUMMARY" -ForegroundColor Cyan

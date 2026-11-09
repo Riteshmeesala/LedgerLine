@@ -109,11 +109,19 @@ export default function HolderDashboard() {
   }, [accounts, selectedAccount, feedTab]);
 
   const openActionModal = (type, acc) => {
+    if (type !== 'CREATE_ACCOUNT' && !acc && !selectedAccount && accounts.length === 0) {
+      setActionType('CREATE_ACCOUNT');
+      setAccountName('Primary Checking');
+      setActionError(null);
+      setActionSuccess(null);
+      setCurrentIdempotencyKey(generateIdempotencyKey());
+      return;
+    }
     setActionType(type);
     setSelectedAccount(acc || selectedAccount || accounts[0]);
     setAmountRupees('');
     setTargetAccountId('');
-    setAccountName('');
+    setAccountName(type === 'CREATE_ACCOUNT' ? 'Primary Checking' : '');
     setActionError(null);
     setActionSuccess(null);
     setCurrentIdempotencyKey(generateIdempotencyKey());
@@ -149,6 +157,12 @@ export default function HolderDashboard() {
     setActionLoading(true);
     setActionError(null);
     setActionSuccess(null);
+
+    if (actionType !== 'CREATE_ACCOUNT' && !selectedAccount) {
+      setActionError('Please select or create an account first.');
+      setActionLoading(false);
+      return;
+    }
 
     const keyToUse = retryKey || currentIdempotencyKey;
     const amountMinor = parseINRToMinorUnits(amountRupees);
@@ -191,7 +205,7 @@ export default function HolderDashboard() {
       }
 
       setActionSuccess({
-        transferId: result.id,
+        transferId: result.transferId || result.id,
         amountMinor: result.amountMinor,
         isReplayed: result.isReplayed || false,
         keyUsed: keyToUse
@@ -336,8 +350,8 @@ export default function HolderDashboard() {
         </button>
       </div>
 
-      {/* Modern Fintech Neo-Card */}
-      {currentAcc && (
+      {/* Modern Fintech Neo-Card or Empty Account Onboarding State */}
+      {currentAcc ? (
         <div
           style={{
             background: 'linear-gradient(135deg, #1e3a8a 0%, #1e293b 70%, #0f172a 100%)',
@@ -448,6 +462,35 @@ export default function HolderDashboard() {
             </div>
           </div>
         </div>
+      ) : (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+            borderRadius: '20px',
+            padding: '2.5rem 1.6rem',
+            color: '#ffffff',
+            boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.25)',
+            marginBottom: '1.5rem',
+            textAlign: 'center'
+          }}
+        >
+          <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'rgba(37, 99, 235, 0.2)', color: '#60a5fa', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', border: '1px solid rgba(96, 165, 250, 0.3)' }}>
+            <Wallet size={28} />
+          </div>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, marginBottom: '0.4rem', color: '#ffffff' }}>
+            Open Your First Checking Account
+          </h2>
+          <p style={{ color: '#94a3b8', fontSize: '0.92rem', maxWidth: '480px', margin: '0 auto 1.5rem' }}>
+            You haven't opened a ledger account yet. Create your primary checking account in one click to begin depositing, transferring, and tracking verified statements.
+          </p>
+          <button
+            onClick={() => openActionModal('CREATE_ACCOUNT')}
+            className="btn btn-primary"
+            style={{ padding: '0.65rem 1.4rem', fontSize: '0.92rem', display: 'inline-flex', gap: '0.5rem' }}
+          >
+            <Plus size={18} /> Open Checking Account
+          </button>
+        </div>
       )}
 
       {/* Quick Action Circles / Buttons */}
@@ -461,7 +504,7 @@ export default function HolderDashboard() {
       >
         <button
           onClick={() => openActionModal('DEPOSIT', currentAcc)}
-          disabled={currentAcc?.status === 'FROZEN'}
+          disabled={!currentAcc || currentAcc?.status === 'FROZEN'}
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
@@ -472,7 +515,8 @@ export default function HolderDashboard() {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '0.45rem',
-            cursor: 'pointer',
+            cursor: !currentAcc || currentAcc?.status === 'FROZEN' ? 'not-allowed' : 'pointer',
+            opacity: !currentAcc || currentAcc?.status === 'FROZEN' ? 0.6 : 1,
             boxShadow: 'var(--shadow-sm)',
             transition: 'all 0.15s ease'
           }}
@@ -485,7 +529,7 @@ export default function HolderDashboard() {
 
         <button
           onClick={() => openActionModal('WITHDRAW', currentAcc)}
-          disabled={currentAcc?.status === 'FROZEN' || (currentAcc && currentAcc.balance <= 0)}
+          disabled={!currentAcc || currentAcc?.status === 'FROZEN' || currentAcc.balance <= 0}
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
@@ -496,7 +540,8 @@ export default function HolderDashboard() {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '0.45rem',
-            cursor: 'pointer',
+            cursor: !currentAcc || currentAcc?.status === 'FROZEN' || currentAcc.balance <= 0 ? 'not-allowed' : 'pointer',
+            opacity: !currentAcc || currentAcc?.status === 'FROZEN' || currentAcc.balance <= 0 ? 0.6 : 1,
             boxShadow: 'var(--shadow-sm)',
             transition: 'all 0.15s ease'
           }}
@@ -509,7 +554,7 @@ export default function HolderDashboard() {
 
         <button
           onClick={() => openActionModal('TRANSFER', currentAcc)}
-          disabled={currentAcc?.status === 'FROZEN' || (currentAcc && currentAcc.balance <= 0)}
+          disabled={!currentAcc || currentAcc?.status === 'FROZEN' || currentAcc.balance <= 0}
           style={{
             background: '#ffffff',
             border: '1px solid #bfdbfe',
@@ -520,7 +565,8 @@ export default function HolderDashboard() {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '0.45rem',
-            cursor: 'pointer',
+            cursor: !currentAcc || currentAcc?.status === 'FROZEN' || currentAcc.balance <= 0 ? 'not-allowed' : 'pointer',
+            opacity: !currentAcc || currentAcc?.status === 'FROZEN' || currentAcc.balance <= 0 ? 0.6 : 1,
             boxShadow: '0 4px 12px rgba(37, 99, 235, 0.08)',
             transition: 'all 0.15s ease'
           }}

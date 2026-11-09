@@ -1,6 +1,7 @@
 package com.ledgerline.config;
 
 import com.ledgerline.model.UserRole;
+import com.ledgerline.service.MoneyEngineService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final MoneyEngineService moneyEngineService;
 
     @Value("${ledgerline.seed.admin-password:}")
     private String adminPassword;
@@ -34,21 +36,22 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Value("${ledgerline.seed.holder2-password:}")
     private String holder2Password;
 
-    public DatabaseSeeder(JdbcTemplate jdbcTemplate, PasswordEncoder passwordEncoder) {
+    public DatabaseSeeder(JdbcTemplate jdbcTemplate, PasswordEncoder passwordEncoder, MoneyEngineService moneyEngineService) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
+        this.moneyEngineService = moneyEngineService;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
-        seedUserIfConfigured("admin@ledgerline.local", adminPassword, UserRole.ADMIN, null);
-        seedUserIfConfigured("auditor@ledgerline.local", auditorPassword, UserRole.AUDITOR, null);
-        seedUserIfConfigured("holder1@ledgerline.local", holder1Password, UserRole.HOLDER, "Holder 1 Checking");
-        seedUserIfConfigured("holder2@ledgerline.local", holder2Password, UserRole.HOLDER, "Holder 2 Checking");
+        seedUserIfConfigured("admin@ledgerline.local", adminPassword, UserRole.ADMIN, null, 0L);
+        seedUserIfConfigured("auditor@ledgerline.local", auditorPassword, UserRole.AUDITOR, null, 0L);
+        seedUserIfConfigured("holder1@ledgerline.local", holder1Password, UserRole.HOLDER, "Holder 1 Checking", 150000L);
+        seedUserIfConfigured("holder2@ledgerline.local", holder2Password, UserRole.HOLDER, "Holder 2 Checking", 50000L);
     }
 
-    private void seedUserIfConfigured(String email, String rawPassword, UserRole role, String accountName) {
+    private void seedUserIfConfigured(String email, String rawPassword, UserRole role, String accountName, long initialDepositMinor) {
         if (rawPassword == null || rawPassword.trim().isEmpty()) {
             return;
         }
@@ -81,6 +84,25 @@ public class DatabaseSeeder implements CommandLineRunner {
                     accountId, userId, accountName, Timestamp.from(now)
             );
             log.info("Provisioned customer checking account: {} for {}", accountName, email);
+
+            if (initialDepositMinor > 0) {
+                try {
+                    String seedIdemKey = "seed-deposit-" + accountId.toString().substring(0, 16);
+                    moneyEngineService.executeTransfer(
+                            userId,
+                            "POST",
+                            "/api/accounts/" + accountId + "/deposits",
+                            seedIdemKey,
+                            MoneyEngineService.CASH_IN_OUT_ACCOUNT_ID,
+                            accountId,
+                            initialDepositMinor,
+                            "DEPOSIT"
+                    );
+                    log.info("Seeded verified initial deposit of {} paise for account {}", initialDepositMinor, accountId);
+                } catch (Exception e) {
+                    log.warn("Could not execute initial seed deposit for {}: {}", email, e.getMessage());
+                }
+            }
         }
     }
 }

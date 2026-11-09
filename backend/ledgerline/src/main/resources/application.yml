@@ -39,4 +39,9 @@ ledgerline:
     max-minor-units: 100000000
     lockout-attempts: 5
     lockout-duration-minutes: 15
+  seed:
+    admin-password: ${SEED_ADMIN_PASSWORD:}
+    auditor-password: ${SEED_AUDITOR_PASSWORD:}
+    holder1-password: ${SEED_HOLDER1_PASSWORD:}
+    holder2-password: ${SEED_HOLDER2_PASSWORD:}
 
